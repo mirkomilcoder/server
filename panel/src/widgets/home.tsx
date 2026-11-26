@@ -10,7 +10,8 @@ import { useGuardian } from '@/state/guardian';
 import { useSystem } from '@/state/system';
 import { useMotion } from '@/theme/motion';
 import { GB } from '@/api/metrics';
-import type { GuardianEvent } from '@/api/guardian';
+import { apps, type GuardianEvent } from '@/api/guardian';
+import { usePoll } from '@/hooks/usePoll';
 import type { PageId } from '@/pages/registry';
 import { Card } from './Card';
 import { CountUp } from './CountUp';
@@ -191,8 +192,10 @@ export function QuickActions({ go }: { go: (id: PageId) => void }) {
 
 // ---------------------------------------------------------------- projects
 
-export function ProjectsCard({ go }: { go: (id: PageId) => void }) {
+export function ProjectsCard({ go }: { go: (id: PageId, o?: Record<string, string>) => void }) {
   const { t } = useT();
+  const projects = usePoll(apps.list, 15_000);
+  const items = projects.data?.apps ?? [];
   return (
     <Card
       title={t('projects.title')}
@@ -205,14 +208,36 @@ export function ProjectsCard({ go }: { go: (id: PageId) => void }) {
         <span>{t('projects.col.resources')}</span>
         <span>{t('projects.col.deployed')}</span>
       </div>
-      <div className="empty empty--compact">
-        <div className="empty__icon"><Rocket size={24} /></div>
-        <h2>{t('projects.empty.title')}</h2>
-        <p>{t('projects.empty.body')}</p>
-        <button className="btn btn--accent btn--sm" onClick={() => go('deploy')}>
-          <ArrowUpRight size={15} /> {t('quick.deploy')}
-        </button>
-      </div>
+      {projects.data === null && !projects.error ? (
+        <Skel h={150} r={12} />
+      ) : items.length === 0 ? (
+        <div className="empty empty--compact">
+          <div className="empty__icon"><Rocket size={24} /></div>
+          <h2>{t('projects.empty.title')}</h2>
+          <p>{t('deploy.empty.body')}</p>
+          <button className="btn btn--accent btn--sm" onClick={() => go('deploy')}>
+            <ArrowUpRight size={15} /> {t('quick.deploy')}
+          </button>
+        </div>
+      ) : (
+        items.slice(0, 5).map((a) => {
+          const st = a.last_deploy?.state === 'running' ? 'deploying' : a.current?.container ? 'running' : a.last_deploy?.state === 'failed' ? 'failed' : 'never';
+          return (
+            <button className="table-row" key={a.name} onClick={() => go('deploy', { app: a.name })}>
+              <span className="table-row__name">
+                <span className="mono">{a.name}</span>
+                <span className="subtle">{t(`type.${a.current?.type ?? a.last_deploy?.type ?? a.type ?? 'dockerfile'}` as TranslationKey)}</span>
+              </span>
+              <span><span className={`pill ${st === 'running' ? 'pill--success' : st === 'failed' ? 'pill--danger' : st === 'deploying' ? 'pill--info' : 'pill--muted'}`}>
+                {t(st === 'running' ? 'deploy.running' : st === 'failed' ? 'deploy.failed' : st === 'deploying' ? 'deploy.deploying' : 'deploy.never')}
+              </span></span>
+              <span className="mono subtle">{a.url ? a.url.replace('http://', '') : '—'}</span>
+              <span className="mono subtle">{a.stats ? `${a.stats.cpu} · ${a.stats.mem.split('/')[0].trim()}` : '—'}</span>
+              <span className="subtle">{a.last_deploy ? timeAgo(t, a.last_deploy.started) : '—'}</span>
+            </button>
+          );
+        })
+      )}
     </Card>
   );
 }

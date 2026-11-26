@@ -77,20 +77,126 @@ const http = () => (client ??= cockpit().http(SOCKET));
 /** Thrown when the agent isn't installed / not running (graceful fallback in the UI). */
 export class GuardianUnavailable extends Error {}
 
-async function request<T>(fn: () => Promise<string>): Promise<T> {
-  try {
-    return JSON.parse(await fn()) as T;
-  } catch (e) {
-    const err = e as CockpitHttpError;
-    // no socket → bridge reports not-found / disconnected
-    if (!err.status) throw new GuardianUnavailable(err.message ?? 'guardian unavailable');
-    throw new Error(`${err.status} ${err.reason ?? ''} ${err.message ?? ''}`.trim());
-  }
+/*
+ * cockpit.http rejects with (error, responseBody): the body carries Guardian's
+ * readable message ({"error": "…"}), so we keep it instead of "400 Bad Request".
+ */
+function request<T>(fn: () => Promise<string>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const onError = (err: CockpitHttpError, body?: string) => {
+      // no socket → the bridge reports not-found / disconnected (agent not installed)
+      if (!err?.status) return reject(new GuardianUnavailable(err?.message ?? 'guardian unavailable'));
+      let msg = '';
+      try {
+        msg = (JSON.parse(body ?? '') as { error?: string }).error ?? '';
+      } catch {
+        /* not JSON */
+      }
+      reject(new Error(msg || `${err.status} ${err.reason ?? ''}`.trim()));
+    };
+    fn().then(
+      (body) => {
+        try {
+          resolve(JSON.parse(body) as T);
+        } catch (e) {
+          reject(e);
+        }
+      },
+      onError as (reason: unknown) => void,
+    );
+  });
 }
 
 const get = <T,>(path: string, params?: Record<string, string>) => request<T>(() => http().get(path, params));
 const post = <T,>(path: string, body: object) =>
   request<T>(() => http().post(path, JSON.stringify(body), { 'Content-Type': 'application/json' }));
+
+// ---------------------------------------------------------------- apps (PaaS)
+
+export type AppType = 'dockerfile' | 'django' | 'fastapi' | 'flask' | 'bot' | 'node' | 'static';
+
+export interface DeployStatus {
+  id: string;
+  app: string;
+  by: string;
+  state: 'running' | 'success' | 'failed';
+  step: string;
+  started: number;
+  finished?: number;
+  type?: AppType;
+  web?: boolean;
+  port?: number;
+  commit?: string;
+  image?: string;
+  error?: string;
+  url?: string;
+}
+
+export interface AppInfo {
+  name: string;
+  repo: string;
+  branch: string;
+  type: AppType | null;
+  port: number;
+  mem_mb: number;
+  cpus: number;
+  created_by: string;
+  created_at: number;
+  current: { deploy_id?: string; container?: string; web?: boolean; type?: AppType; port?: number };
+  last_deploy: DeployStatus | null;
+  url: string | null;
+  stats: { cpu: string; mem: string; memPerc: string } | null;
+}
+
+export interface AppDetail extends Omit<AppInfo, 'last_deploy' | 'stats'> {
+  deploys: DeployStatus[];
+  env: { key: string; length: number }[];
+}
+
+export interface NewApp {
+  name: string;
+  repo: string;
+  branch: string;
+  type: AppType | null;
+  port: number;
+  mem_mb: number;
+  cpus: number;
+  env: Record<string, string>;
+}
+
+export interface DockerContainer {
+  ID: string;
+  Names: string;
+  Image: string;
+  State: string;
+  Status: string;
+  Ports: string;
+  Labels: string;
+}
+
+export const apps = {
+  list: () => get<{ apps: AppInfo[]; domain: string }>('/v1/apps'),
+  create: (a: NewApp) => post<{ deploy_id: string }>('/v1/apps', a),
+  detail: (name: string) => get<AppDetail>(`/v1/apps/${encodeURIComponent(name)}`),
+  deploy: (name: string) => post<{ deploy_id: string }>(`/v1/apps/${encodeURIComponent(name)}/deploy`, {}),
+  rollback: (name: string, deploy_id: string) => post<{ deploy_id: string }>(`/v1/apps/${encodeURIComponent(name)}/rollback`, { deploy_id }),
+  deployLog: (name: string, id: string, offset: number) =>
+    get<{ status: DeployStatus; text: string; next: number }>(`/v1/apps/${encodeURIComponent(name)}/deploys/${id}`, { offset: String(offset) }),
+  control: (name: string, op: 'start' | 'stop' | 'restart') => post<{ result: string }>(`/v1/apps/${encodeURIComponent(name)}/control`, { op }),
+  logs: (name: string, lines = 300) => get<{ text: string }>(`/v1/apps/${encodeURIComponent(name)}/logs`, { lines: String(lines) }),
+  setEnv: (name: string, env: Record<string, string>, keep: string[]) =>
+    post<{ env: { key: string; length: number }[] }>(`/v1/apps/${encodeURIComponent(name)}/env`, { env, keep }),
+  settings: (name: string, s: Partial<Pick<NewApp, 'branch' | 'type' | 'port' | 'mem_mb' | 'cpus'>>) =>
+    post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, s),
+  remove: (name: string, confirm: string) => post<{ deleted: string }>(`/v1/apps/${encodeURIComponent(name)}/delete`, { confirm }),
+};
+
+export const docker = {
+  containers: () => get<{ containers: DockerContainer[]; stats: Record<string, { cpu: string; mem: string; memPerc: string }> }>('/v1/docker/containers'),
+  op: (name: string, op: 'start' | 'stop' | 'restart') => post<{ result: string }>('/v1/docker/container', { name, op }),
+  logs: (name: string, lines = 300) => get<{ text: string }>('/v1/docker/logs', { name, lines: String(lines) }),
+  prune: () => post<{ result: string }>('/v1/docker/prune', {}),
+};
 
 export const guardian = {
   me: () => get<Me>('/v1/me'),

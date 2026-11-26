@@ -20,6 +20,10 @@ class FakeDB:
 
 class FakeState:
     db = FakeDB()
+    # the apps module creates its table on a real (in-memory) SQLite connection
+    db.conn = __import__("sqlite3").connect(":memory:", check_same_thread=False)
+    db.conn.row_factory = __import__("sqlite3").Row
+    cfg = type("Cfg", (), {"domain": "mirkomil-host.uz", "brand": "Mirkomil Host"})()
 
     def snapshot(self):
         return {"score": 100}
@@ -69,3 +73,17 @@ def test_unknown_route_404_and_bad_json_400():
     with pytest.raises(api_mod.HttpError) as e:
         run(call(VIEWER, b"POST /v1/status HTTP/1.1\r\nContent-Length: 3\r\n\r\nabc"))
     assert e.value.status in (400, 405)
+
+
+def test_path_parameters_are_matched_and_validated():
+    api = api_mod.Api()
+
+    @api.route("GET", "/v1/apps/{name}/logs")
+    async def h(_p, q, _b):
+        return q
+
+    found, params = api._match("GET", "/v1/apps/shop/logs")
+    assert found and params == {"name": "shop"}
+    assert api._match("GET", "/v1/apps/../logs")[0] is None or api._match("GET", "/v1/apps/../logs")[1] == {"name": ".."}
+    assert api._match("GET", "/v1/apps/a%2Fb/logs")[0] is None
+    assert api._match("POST", "/v1/apps/shop/logs")[0] is None

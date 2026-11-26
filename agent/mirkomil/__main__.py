@@ -20,6 +20,11 @@ def main() -> int:
         from .helper import serve
         serve()
         return 0
+    if cmd == "deploy":
+        # started by the helper via systemd-run (root, outside the helper sandbox)
+        from pathlib import Path
+        from .paas.engine import deploy
+        return deploy(Path(sys.argv[2]))
     if cmd == "status":
         # Query the running Guardian over its socket (same path the panel uses).
         import socket

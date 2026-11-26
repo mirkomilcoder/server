@@ -1,0 +1,14 @@
+# Mirkomil PaaS default .dockerignore — keeps secrets and junk out of images
+.git
+.env
+.env.*
+*.pem
+*.key
+node_modules
+__pycache__
+*.pyc
+.venv
+venv
+.pytest_cache
+.mypy_cache
+.DS_Store

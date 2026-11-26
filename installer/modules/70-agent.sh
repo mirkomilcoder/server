@@ -42,6 +42,9 @@ module_run() {
     [[ "$before" == "$(cat "/etc/systemd/system/$f")" ]] || units_changed=1
   done
   install_file "$cfg/mirkomil-tmpfiles.conf" /etc/tmpfiles.d/mirkomil.conf
+  # PaaS data: root-owned, group "mirkomil" may read deploy status/logs (never app secrets)
+  install -d -m 0750 -o root -g mirkomil /var/lib/mirkomil/apps
+  install -d -m 0755 -o root -g root /var/lib/mirkomil/proxy
   run systemd-tmpfiles --create /etc/tmpfiles.d/mirkomil.conf
 
   # restart when the agent's code changed too (not only its unit files)

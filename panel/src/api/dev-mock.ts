@@ -156,6 +156,25 @@ const rulesState = {
   ],
 };
 
+function mockDeploy(ts: number, state: string, step: string) {
+  const id = state === 'running' ? '20261126-120000-aaaa' : `2026112${ts % 7}-0${ts % 9}0000-bb${ts % 10}c`;
+  return { id, app: 'milano-kafe', by: 'home-server', state, step, started: ts, type: 'django', web: true, port: 8000,
+    commit: '3f9c2e1 Menyu sahifasi', image: `mirkomil/app-milano-kafe:${id}`, error: state === 'failed' ? "yangi versiya sog'liq tekshiruvidan o'tmadi" : undefined };
+}
+
+function mockApps(now: number) {
+  return [
+    { name: 'milano-kafe', repo: 'https://github.com/mirkomil/milano-kafe', branch: 'main', type: null, port: 0, mem_mb: 512, cpus: 1,
+      created_by: 'home-server', created_at: now - 864000, current: { deploy_id: 'x', container: 'mk-milano-kafe-1', web: true, type: 'django' },
+      last_deploy: mockDeploy(now - 30, 'running', 'build'), url: 'http://milano-kafe.mirkomil-host.uz', stats: { cpu: '4.1%', mem: '182MiB / 512MiB', memPerc: '35%' } },
+    { name: 'kino-bot', repo: 'https://github.com/mirkomil/kino_bot', branch: 'main', type: 'bot', port: 0, mem_mb: 256, cpus: 0.5,
+      created_by: 'home-server', created_at: now - 400000, current: { deploy_id: 'y', container: 'mk-kino-bot-1', web: false, type: 'bot' },
+      last_deploy: { ...mockDeploy(now - 172800, 'success', 'switch'), app: 'kino-bot', type: 'bot', commit: 'a1b2c3d /start menyusi' }, url: null, stats: { cpu: '0.8%', mem: '64MiB / 256MiB', memPerc: '25%' } },
+    { name: 'landing', repo: 'https://github.com/mirkomil/landing', branch: 'main', type: 'static', port: 0, mem_mb: 128, cpus: 0.25,
+      created_by: 'home-server', created_at: now - 90000, current: {}, last_deploy: { ...mockDeploy(now - 5400, 'failed', 'health'), app: 'landing', type: 'static' }, url: null, stats: null },
+  ];
+}
+
 function http(): ReturnType<Cockpit['http']> {
   const now = () => Math.floor(Date.now() / 1000);
   const series = (span: number, base: number, amp: number) =>
@@ -179,6 +198,12 @@ function http(): ReturnType<Cockpit['http']> {
       return { range: p.range, series: { cpu: series(span, 25, 12), mem: series(span, 40, 4) } };
     },
     '/v1/rules': () => rulesState,
+    '/v1/apps': () => ({ domain: 'mirkomil-host.uz', apps: mockApps(now()) }),
+    '/v1/apps/milano-kafe': () => ({ ...mockApps(now())[0], env: [{ key: 'DATABASE_URL', length: 58 }, { key: 'SECRET_KEY', length: 50 }],
+      deploys: [mockDeploy(now() - 30, 'running', 'build'), mockDeploy(now() - 7200, 'success', 'switch'), mockDeploy(now() - 86400, 'failed', 'health')] }),
+    '/v1/apps/milano-kafe/deploys/20261126-120000-aaaa': () => ({ status: mockDeploy(now() - 30, 'running', 'build'), next: 1,
+      text: '\n==> Kod yuklanmoqda: https://github.com/mirkomil/milano-kafe (main)\ncommit: 3f9c2e1 Menyu sahifasi\n\n==> Loyiha turi aniqlanmoqda\ntur: django\n\n==> Docker obraz yig\'ilmoqda\n#5 [3/6] RUN pip install -r requirements.txt && pip install gunicorn\n#5 12.4 Successfully installed Django-5.1.4 gunicorn-23.0.0 …\n' }),
+    '/v1/apps/kino-bot/logs': () => ({ text: '2026-11-26T18:20:01Z INFO Bot ishga tushdi\n2026-11-26T18:21:44Z INFO Yangi foydalanuvchi: /start\n' }),
     '/v1/identity': () => ({ brand: 'Mirkomil Host', domain: 'mirkomil-host.uz' }),
     '/v1/events': () => ({
       events: [

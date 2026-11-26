@@ -11,6 +11,7 @@ connection (Connection: close).
 from __future__ import annotations
 
 import asyncio
+import re
 import json
 import logging
 import time
@@ -48,6 +49,29 @@ class Api:
             self.routes[(method, path)] = (role, fn)
             return fn
         return deco
+
+    def _match(self, method: str | None, path: str) -> tuple[tuple[str, Handler] | None, dict[str, str]]:
+        """Exact routes first, then patterns like /v1/apps/{name}/deploy ({x} = one safe path segment)."""
+        if method and (method, path) in self.routes:
+            return self.routes[(method, path)], {}
+        parts = path.strip("/").split("/")
+        for (m, pattern), found in self.routes.items():
+            if method and m != method:
+                continue
+            pp = pattern.strip("/").split("/")
+            if len(pp) != len(parts):
+                continue
+            params: dict[str, str] = {}
+            for want, got in zip(pp, parts):
+                if want.startswith("{") and want.endswith("}"):
+                    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", got):
+                        break
+                    params[want[1:-1]] = got
+                elif want != got:
+                    break
+            else:
+                return found, params
+        return None, {}
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         status, payload = 500, {"error": "internal"}
@@ -96,11 +120,12 @@ class Api:
 
         url = urlsplit(target)
         query = {k: v[-1] for k, v in parse_qs(url.query).items()}
-        found = self.routes.get((method, url.path))
+        found, params = self._match(method, url.path)
         if not found:
-            if any(p == url.path for (_m, p) in self.routes):
+            if self._match(None, url.path)[0]:
                 raise HttpError(405, "method not allowed")
             raise HttpError(404, "not found")
+        query.update(params)  # path parameters ({name}) are passed like query params
         role, fn = found
         if not peer.at_least(role):
             log.warning("denied %s %s for %s (role %s)", method, url.path, peer.user, peer.role)
@@ -166,6 +191,9 @@ def build_api(state: "GuardianState") -> Api:  # noqa: F821 (forward ref, see gu
         state.cfg.brand, state.cfg.domain = brand, domain
         state.db.add_event("action", "info", f"Server nomi/domeni o'zgartirildi: {old[0]} → {brand}, {old[1]} → {domain}", actor=p.user)
         return {"brand": brand, "domain": domain}
+
+    from .paas.api_apps import register as register_apps
+    register_apps(api, state)
 
     @api.route("GET", "/v1/rules")
     async def rules_get(_p: Peer, _q: dict[str, str], _b: Any) -> Any:

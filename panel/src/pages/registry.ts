@@ -65,21 +65,21 @@ const soon = (milestone: string) =>
 
 export const PAGES: PageDef[] = [
   { id: 'dashboard', icon: House, label: 'nav.home', group: 'main', component: lazy(() => import('./Dashboard')) },
-  { id: 'deploy', icon: Rocket, label: 'nav.deploy', group: 'main', component: soon('M5'), milestone: 'M5' },
-  { id: 'apps', icon: LayoutGrid, label: 'nav.apps', group: 'main', component: soon('M5'), milestone: 'M5' },
+  { id: 'deploy', icon: Rocket, label: 'nav.deploy', group: 'main', component: lazy(() => import('./DeployPage')) },
+  { id: 'apps', icon: LayoutGrid, label: 'nav.apps', group: 'main', component: soon('M5b'), milestone: 'M5b' },
   { id: 'files', icon: Folder, label: 'nav.files', group: 'main', component: lazy(() => import('./FilesPage')) },
 
   { id: 'services', icon: Server, label: 'nav.services', group: 'server', component: lazy(() => import('./ServicesPage')) },
-  { id: 'bots', icon: Bot, label: 'nav.bots', group: 'server', component: soon('M5'), milestone: 'M5' },
+  { id: 'bots', icon: Bot, label: 'nav.bots', group: 'server', component: lazy(() => import('./BotsPage')) },
   { id: 'updates', icon: Download, label: 'nav.updates', group: 'server', component: lazy(() => import('./UpdatesPage')) },
   { id: 'activity', icon: Activity, label: 'nav.activity', group: 'server', component: lazy(() => import('./ActivityPage')) },
   { id: 'power', icon: Power, label: 'nav.power', group: 'server', danger: true, component: lazy(() => import('./PowerPage')) },
 
   { id: 'monitoring', icon: LineChart, label: 'nav.monitoring', group: 'manage', live: true, component: lazy(() => import('./GuardianPage')) },
-  { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: soon('M5'), milestone: 'M5' },
+  { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: lazy(() => import('./DockerPage')) },
   { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: soon('M6'), milestone: 'M6' },
   { id: 'backup', icon: DatabaseBackup, label: 'nav.backup', group: 'manage', component: soon('M8'), milestone: 'M8' },
-  { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: soon('M5'), milestone: 'M5' },
+  { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: soon('M5b'), milestone: 'M5b' },
   { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: lazy(() => import('./SecurityPage')) },
   { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: soon('M6'), milestone: 'M6' },
 

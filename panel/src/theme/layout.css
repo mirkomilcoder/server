@@ -180,7 +180,7 @@
 .terminal-frame { width: 100%; height: calc(100vh - 220px); min-height: 420px; border: 1px solid var(--border); border-radius: var(--r-card); background: #000; }
 
 .form-grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.field { display: grid; gap: 10px; }
+.field { display: grid; gap: 10px; align-content: start; }
 .field__label { font-weight: 600; }
 .choices { display: flex; flex-wrap: wrap; gap: 8px; }
 .choice {

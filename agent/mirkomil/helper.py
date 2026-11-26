@@ -164,7 +164,145 @@ def v_identity_apply(a: dict[str, Any]) -> Any:
     return run_installer_job("identity", "50,60", {"MK_BRAND_NAME": brand, "MK_DOMAIN": domain})
 
 
+# ---------------------------------------------------------------- PaaS apps
+
+CONTAINER_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
+
+
+def _app(a: dict[str, Any]) -> str:
+    from .paas.engine import APP_RE
+    app = str(a.get("app", ""))
+    if not APP_RE.match(app):
+        raise VerbError("invalid app name")
+    return app
+
+
+def _current(app: str) -> dict[str, Any]:
+    from .paas.engine import app_dir
+    try:
+        return json.loads((app_dir(app) / "current.json").read_text())
+    except (OSError, ValueError):
+        raise VerbError("app is not deployed yet")
+
+
+def v_app_deploy(a: dict[str, Any]) -> Any:
+    """Validate, write the spec, start the deploy as its own low-priority systemd job."""
+    from .paas import engine
+    a = dict(a, deploy_id=engine.new_deploy_id())
+    try:
+        spec = engine.validate_spec(a)
+    except engine.DeployError as e:
+        raise VerbError(str(e))
+    running = subprocess.run(["systemctl", "list-units", "--state=activating,active", "--no-legend", "--plain",
+                              f"mk-deploy-{spec['app']}-*"], capture_output=True, text=True).stdout.strip()
+    if running:
+        raise VerbError("bu ilova uchun deploy allaqachon davom etmoqda")
+    ddir = engine.ensure_dir(engine.app_dir(spec["app"]) / "deploys" / spec["deploy_id"])
+    engine.ensure_dir(engine.app_dir(spec["app"]) / "deploys")
+    engine.write_shared(ddir / "spec.json", json.dumps(spec))
+    unit = f"mk-deploy-{spec['app']}-{spec['deploy_id'][-4:]}"
+    _run(["systemd-run", f"--unit={unit}", "--collect", "--no-block", "--quiet",
+          "--property=Nice=10", "--property=CPUWeight=50", "--property=IOWeight=50",
+          "--setenv=PYTHONPATH=/opt/mirkomil/src/agent", "--setenv=PYTHONDONTWRITEBYTECODE=1",
+          "/usr/bin/python3", "-m", "mirkomil", "deploy", str(ddir / "spec.json")])
+    return {"deploy_id": spec["deploy_id"]}
+
+
+def v_app_env_set(a: dict[str, Any]) -> Any:
+    """Replace env: new values from `env`, plus existing values for keys listed in `keep`."""
+    from .paas import engine
+    app = _app(a)
+    env, keep = a.get("env") or {}, a.get("keep") or []
+    if not isinstance(env, dict) or not isinstance(keep, list):
+        raise VerbError("bad env")
+    old = engine.read_env(app)
+    merged = {k: old[k] for k in keep if isinstance(k, str) and k in old}
+    merged.update({str(k): str(v) for k, v in env.items()})
+    try:
+        engine.write_env(app, merged)
+    except engine.DeployError as e:
+        raise VerbError(str(e))
+    return engine.read_env_keys(app)
+
+
+def v_app_env_keys(a: dict[str, Any]) -> Any:
+    from .paas import engine
+    return engine.read_env_keys(_app(a))
+
+
+def v_app_control(a: dict[str, Any]) -> Any:
+    app, op = _app(a), str(a.get("op", ""))
+    if op not in ("start", "stop", "restart"):
+        raise VerbError("op: start | stop | restart")
+    _run(["docker", op, _current(app)["container"]], timeout=90)
+    return op
+
+
+def v_app_logs(a: dict[str, Any]) -> Any:
+    app = _app(a)
+    lines = max(10, min(2000, int(a.get("lines") or 200)))
+    p = subprocess.run(["docker", "logs", "--tail", str(lines), "--timestamps", _current(app)["container"]],
+                       capture_output=True, text=True, timeout=30)
+    return (p.stdout + p.stderr)[-300_000:]
+
+
+def v_app_delete(a: dict[str, Any]) -> Any:
+    from .paas import engine
+    app = _app(a)
+    for name in engine.app_containers(app):
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=60)
+    if app in engine.load_routes():
+        engine.set_route(app, None, None)
+    tags = subprocess.run(["docker", "image", "ls", f"mirkomil/app-{app}", "--format", "{{.Repository}}:{{.Tag}}"],
+                          capture_output=True, text=True).stdout.split()
+    for t in tags:
+        subprocess.run(["docker", "image", "rm", t], capture_output=True, timeout=60)
+    import shutil
+    shutil.rmtree(engine.app_dir(app), ignore_errors=True)
+    return "deleted"
+
+
+def v_app_stats(_a: dict[str, Any]) -> Any:
+    """CPU / memory per Mirkomil container (one docker stats snapshot)."""
+    p = subprocess.run(["docker", "stats", "--no-stream", "--format", "{{json .}}"], capture_output=True, text=True, timeout=30)
+    out = {}
+    for line in p.stdout.splitlines():
+        try:
+            s = json.loads(line)
+        except ValueError:
+            continue
+        if s.get("Name", "").startswith("mk-"):
+            out[s["Name"]] = {"cpu": s.get("CPUPerc"), "mem": s.get("MemUsage"), "memPerc": s.get("MemPerc")}
+    return out
+
+
+def v_docker_container(a: dict[str, Any]) -> Any:
+    name, op = str(a.get("name", "")), str(a.get("op", ""))
+    if not CONTAINER_RE.match(name) or op not in ("start", "stop", "restart"):
+        raise VerbError("invalid container or op")
+    _run(["docker", op, "--", name], timeout=90)
+    return op
+
+
+def v_docker_logs(a: dict[str, Any]) -> Any:
+    name = str(a.get("name", ""))
+    if not CONTAINER_RE.match(name):
+        raise VerbError("invalid container")
+    lines = max(10, min(2000, int(a.get("lines") or 200)))
+    p = subprocess.run(["docker", "logs", "--tail", str(lines), "--timestamps", "--", name], capture_output=True, text=True, timeout=30)
+    return (p.stdout + p.stderr)[-300_000:]
+
+
 VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "app.deploy": v_app_deploy,
+    "app.env.set": v_app_env_set,
+    "app.env.keys": v_app_env_keys,
+    "app.control": v_app_control,
+    "app.logs": v_app_logs,
+    "app.delete": v_app_delete,
+    "app.stats": v_app_stats,
+    "docker.container": v_docker_container,
+    "docker.logs": v_docker_logs,
     "identity.apply": v_identity_apply,
     "apt.clean": v_apt_clean,
     "journal.vacuum": v_journal_vacuum,

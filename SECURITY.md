@@ -18,6 +18,15 @@ only the access it needs**, and that the web UI cannot become a remote shell.
 
 * A stolen/guessed panel session or a malicious browser extension trying to run commands → the panel
   has no generic "run" path; every process comes from the whitelist with argv arrays (no shell).
+* File manager → runs with the logged-in user's own Linux permissions. Directory operations are
+  whitelisted argv actions (`find`, `mv`, `cp`, `rm`, `tar`, `python3 -m zipfile`) with every path
+  validated as normalised and absolute and passed after `--`/`-t`/`-T`; `/` and top-level system
+  folders can never be deleted, moved or chmod-ed; moves and copies never overwrite
+  (`--update=none-fail`); archives are unpacked without `..`/absolute members and without
+  overwriting. Contents travel over Cockpit file channels (uploads in chunks with flow control,
+  written atomically; edits refuse to overwrite a file changed meanwhile). "Admin rejimi" needs
+  Cockpit administrative access, runs the same actions as root and logs each one. File content
+  is shown only as plain text or as an image — never rendered as HTML.
 * A non-admin panel user trying to change Guardian rules → enforced in Guardian by kernel-verified
   uid → Linux groups (`mirkomil-admin`/`sudo`, `mirkomil-dev`, `mirkomil-viewer`), not by the UI.
 * Internet-facing attacks → no ports are opened: Cockpit is reachable from the LAN subnet you choose

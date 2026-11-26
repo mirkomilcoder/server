@@ -336,7 +336,6 @@
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-18); }
 .input:disabled { opacity: .6; }
 .form-error { margin-top: 10px; color: var(--danger-text); font-size: 13.5px; }
-.files-frame { background: var(--surface); }
 
 /* auto-collapsed sidebar (≤900px) hides the same extras as the manual collapse */
 @media (max-width: 900px) {

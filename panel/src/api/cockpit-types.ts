@@ -53,6 +53,8 @@ export interface CockpitSyntax<T> {
 
 export interface CockpitFileOptions<T> {
   syntax?: CockpitSyntax<T>;
+  /** Content is a Uint8Array instead of text. */
+  binary?: boolean;
   superuser?: 'try' | 'require';
   max_read_size?: number;
 }
@@ -115,7 +117,32 @@ export interface CockpitDBusClient {
   close(): void;
 }
 
+/** Raw channel (we use fsreplace1 for chunked uploads). */
+export interface CockpitChannelControl {
+  command: string;
+  problem?: string;
+  message?: string;
+  bytes?: number;
+  [key: string]: unknown;
+}
+
+export interface CockpitChannel {
+  send(data: string | Uint8Array): void;
+  control(options: CockpitChannelControl): void;
+  close(problem?: string): void;
+  addEventListener(ev: 'control' | 'close', cb: (ev: unknown, msg: CockpitChannelControl) => void): void;
+  addEventListener(ev: 'message', cb: (ev: unknown, data: string | Uint8Array) => void): void;
+}
+
+export interface CockpitTransport {
+  csrf_token?: string;
+  /** Absolute URL of a cockpit-ws path for this session, e.g. uri("channel/<token>"). */
+  uri(suffix?: string): string;
+}
+
 export interface Cockpit {
+  channel(options: Record<string, unknown>): CockpitChannel;
+  transport?: CockpitTransport;
   dbus(name: string | null, options?: { bus?: 'system' | 'session' | 'internal'; superuser?: 'try' | 'require' }): CockpitDBusClient;
   http(endpoint: string | number, options?: { superuser?: 'try' | 'require' }): CockpitHttpClient;
   init?: () => Promise<void>;

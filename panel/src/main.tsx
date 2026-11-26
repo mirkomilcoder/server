@@ -6,6 +6,7 @@ import './theme/base.css';
 import './theme/layout.css';
 import './theme/home.css';
 import './theme/pages.css';
+import './theme/files.css';
 import { loadCockpit } from './api/cockpit';
 
 /*

@@ -38,3 +38,27 @@ export function safePath(home: string) {
 export function oneLine(s: string, max = 200): string {
   return s.replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, max);
 }
+
+// ---------------------------------------------------------------- file manager
+
+/** Top-level directories the file manager never deletes, moves or chmods (also "/"). */
+export const PROTECTED_PATHS = new Set([
+  '/', '/bin', '/boot', '/dev', '/etc', '/home', '/lib', '/lib32', '/lib64', '/media', '/mnt', '/opt', '/proc',
+  '/root', '/run', '/sbin', '/snap', '/srv', '/sys', '/tmp', '/usr', '/var', '/var/lib', '/var/log', '/usr/local',
+]);
+
+/** One path component: any printable text except "/", never "." or "..". */
+export const FILE_NAME_RE = /^(?!\.{1,2}$)[^/\u0000-\u001f\u007f]{1,255}$/;
+
+/**
+ * Absolute, already-normalised path (no "." / ".." / empty segments). Any
+ * printable characters are fine: paths only ever travel as single argv elements.
+ */
+export const absPath = z
+  .string()
+  .max(4096)
+  .refine((p) => p === '/' || (p.startsWith('/') && !p.endsWith('/')), 'Yo‘l / bilan boshlanishi kerak')
+  .refine((p) => p === '/' || p.slice(1).split('/').every((s) => FILE_NAME_RE.test(s)), 'Yo‘l noto‘g‘ri');
+
+/** A path that may be changed destructively (delete / move / rename / chmod). */
+export const mutablePath = absPath.refine((p) => !PROTECTED_PATHS.has(p), 'Bu tizim papkasi — o‘zgartirib bo‘lmaydi');

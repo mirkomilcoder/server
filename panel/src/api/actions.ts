@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { CockpitUser } from './cockpit-types';
-import { unitName } from './validate';
+import { absPath, FILE_NAME_RE, mutablePath, unitName } from './validate';
 
 /*
  * THE WHITELIST. Every process the panel can start on the server is defined
@@ -36,6 +36,11 @@ export interface ActionDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
   target?: (params: z.output<S>) => string;
   /** Extra environment ("NAME=value"), fixed per action. */
   environ?: string[];
+  /**
+   * May run as root when the caller asks (file manager "admin mode"); needs
+   * Cockpit administrative access and is then written to the activity log.
+   */
+  elevatable?: boolean;
 }
 
 // Helper that keeps each action's param type precise.
@@ -172,6 +177,82 @@ export const actions = {
     argv: (p) => ['fail2ban-client', 'set', 'sshd', 'unbanip', p.ip],
   }),
 
+  // ---------------------------------------------------------------- file manager
+  // Permissions are the kernel's: as the logged-in user by default, as root only in
+  // admin mode (elevatable). Paths are single argv elements, after "--" or -t/-T/-C.
+
+  /** One directory level, NUL-separated: type, target type, size, mtime, mode, owner, group, link, name. */
+  'files.list': define({
+    schema: z.object({ path: absPath }).strict(), elevatable: true,
+    argv: (p) => ['find', p.path, '-mindepth', '1', '-maxdepth', '1', '-printf', '%y\\0%Y\\0%s\\0%T@\\0%m\\0%u\\0%g\\0%l\\0%f\\0'],
+  }),
+  /** Recursive name search (case-insensitive, same filesystem, depth ≤ 8); names relative to path. */
+  'files.search': define({
+    schema: z.object({ path: absPath, q: z.string().min(1).max(100).regex(/^[^\u0000-\u001f/]+$/) }).strict(), elevatable: true,
+    argv: (p) => ['find', p.path, '-xdev', '-mindepth', '1', '-maxdepth', '8', '-iname', `*${p.q.replace(/[*?[\]\\]/g, '\\$&')}*`,
+      '-printf', '%y\\0%Y\\0%s\\0%T@\\0%m\\0%u\\0%g\\0%l\\0%P\\0'],
+  }),
+  'files.mkdir': define({
+    schema: z.object({ path: absPath }).strict(), elevatable: true, target: (p) => p.path,
+    argv: (p) => ['mkdir', '--', p.path],
+  }),
+  'files.touch': define({
+    schema: z.object({ path: absPath }).strict(), elevatable: true, target: (p) => p.path,
+    argv: (p) => ['touch', '--', p.path],
+  }),
+  /** Rename / move one item; never overwrites (--update=none-fail reports a clash), destination is the exact new path (-T). */
+  'files.rename': define({
+    schema: z.object({ from: mutablePath, to: mutablePath }).strict(), elevatable: true, target: (p) => `${p.from} -> ${p.to}`,
+    argv: (p) => ['mv', '--update=none-fail', '-T', '--', p.from, p.to],
+  }),
+  'files.move': define({
+    schema: z.object({ paths: z.array(mutablePath).min(1).max(500), dir: absPath }).strict(), elevatable: true,
+    target: (p) => `${p.paths.length} -> ${p.dir}`,
+    argv: (p) => ['mv', '--update=none-fail', '-t', p.dir, '--', ...p.paths],
+  }),
+  /** Copy into a directory, keeping attributes; never overwrites. */
+  'files.copy': define({
+    schema: z.object({ paths: z.array(absPath).min(1).max(500), dir: absPath }).strict(), elevatable: true,
+    target: (p) => `${p.paths.length} -> ${p.dir}`,
+    argv: (p) => ['cp', '-a', '--update=none-fail', '-t', p.dir, '--', ...p.paths],
+  }),
+  /** Copy one item to an exact new path ("nusxa" in the same folder). */
+  'files.duplicate': define({
+    schema: z.object({ from: absPath, to: absPath }).strict(), elevatable: true, target: (p) => `${p.from} -> ${p.to}`,
+    argv: (p) => ['cp', '-a', '--update=none-fail', '-T', '--', p.from, p.to],
+  }),
+  'files.delete': define({
+    schema: z.object({ paths: z.array(mutablePath).min(1).max(500) }).strict(), elevatable: true, danger: 'confirm', audit: true,
+    target: (p) => p.paths.join(' '),
+    argv: (p) => ['rm', '-rf', '--one-file-system', '--preserve-root=all', '--', ...p.paths],
+  }),
+  'files.chmod': define({
+    schema: z.object({ paths: z.array(mutablePath).min(1).max(500), mode: z.string().regex(/^[0-7]{3,4}$/) }).strict(), elevatable: true,
+    target: (p) => `${p.mode} ${p.paths.join(' ')}`,
+    argv: (p) => ['chmod', p.mode, '--', ...p.paths],
+  }),
+  /** Total size of a folder in bytes. */
+  'files.du': define({
+    schema: z.object({ path: absPath }).strict(), elevatable: true,
+    argv: (p) => ['du', '-sb', '-x', '--', p.path],
+  }),
+  /** .tar.gz of some entries of one folder (names relative to it). */
+  'files.compress': define({
+    schema: z.object({ dir: absPath, names: z.array(z.string().regex(FILE_NAME_RE)).min(1).max(500), out: absPath }).strict(),
+    elevatable: true, target: (p) => p.out,
+    argv: (p) => ['tar', '-czf', p.out, '-C', p.dir, '--', ...p.names],
+  }),
+  /** Unpack .tar(.gz/.xz/.bz2/.zst): GNU tar strips "/" and refuses "../" members; never overwrites. */
+  'files.untar': define({
+    schema: z.object({ archive: absPath, dir: absPath }).strict(), elevatable: true, target: (p) => p.archive,
+    argv: (p) => ['tar', '-xf', p.archive, '-C', p.dir, '--no-same-owner', '--keep-old-files'],
+  }),
+  /** Unpack .zip with Python's zipfile (sanitises absolute and ".." member paths). */
+  'files.unzip': define({
+    schema: z.object({ archive: absPath, dir: absPath }).strict(), elevatable: true, target: (p) => p.archive,
+    argv: (p) => ['python3', '-I', '-m', 'zipfile', '-e', p.archive, p.dir],
+  }),
+
   /** Create ~/.config/mirkomil-panel so settings.json can be saved. */
   'settings.mkdir': define({
     schema: none,
@@ -182,7 +263,7 @@ export const actions = {
 export type ActionId = keyof typeof actions;
 export type ActionParams<K extends ActionId> = z.input<(typeof actions)[K]['schema']>;
 
-export function actionMeta(id: ActionId): { privileged: boolean; danger: Danger } {
+export function actionMeta(id: ActionId): { privileged: boolean; danger: Danger; elevatable: boolean } {
   const def = actions[id] as unknown as ActionDef;
-  return { privileged: !!def.privileged, danger: def.danger ?? 'none' };
+  return { privileged: !!def.privileged, danger: def.danger ?? 'none', elevatable: !!def.elevatable };
 }

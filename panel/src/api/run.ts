@@ -26,6 +26,8 @@ export interface RunOptions {
   onOutput?: (chunk: string) => void;
   /** Lets the caller stop a long-running process. */
   signal?: AbortSignal;
+  /** Run an `elevatable` action as root (file manager admin mode). Ignored for other actions. */
+  asAdmin?: boolean;
 }
 
 export async function runAction<K extends ActionId>(
@@ -42,10 +44,11 @@ export async function runAction<K extends ActionId>(
   const user = sessionUser();
   const argv = def.argv(parsed.data, { user });
   const spawnOpts: CockpitSpawnOptions = { err: 'message' };
-  if (def.privileged) spawnOpts.superuser = 'require';
+  const elevated = !!def.privileged || (!!def.elevatable && !!opts.asAdmin);
+  if (elevated) spawnOpts.superuser = 'require';
   if (def.environ) spawnOpts.environ = def.environ;
 
-  const audit = def.audit ?? !!def.privileged;
+  const audit = def.audit ?? elevated;
   const target = def.target ? def.target(parsed.data) : '-';
 
   const proc = cockpit().spawn(argv, spawnOpts);

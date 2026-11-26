@@ -1,5 +1,8 @@
+import { fsRead, fsSpawn, fsWrite } from './dev-fs';
 import type {
   Cockpit,
+  CockpitChannel,
+  CockpitChannelControl,
   CockpitFile,
   CockpitFileOptions,
   CockpitLocation,
@@ -28,8 +31,10 @@ function makeProcess(result: Promise<string>): CockpitProcess {
   return p;
 }
 
-function spawn(argv: string[], _opts?: CockpitSpawnOptions): CockpitProcess {
+function spawn(argv: string[], opts?: CockpitSpawnOptions): CockpitProcess {
   const cmd = argv.join(' ');
+  const fsResult = fsSpawn(argv, opts?.superuser === 'require');
+  if (fsResult) return makeProcess(fsResult);
   if (cmd === 'cat /proc/uptime') {
     const s = (Date.now() - bootedAt) / 1000;
     return makeProcess(Promise.resolve(`${s.toFixed(2)} ${(s * 3.1).toFixed(2)}\n`));
@@ -103,9 +108,12 @@ function fakeJournal(): CockpitProcess {
 
 function file<T>(path: string, opts: CockpitFileOptions<T> = {}): CockpitFile<T> {
   const key = `mock-file:${path}`;
+  // panel settings persist in localStorage; everything else lives in the fake FS
+  const inFs = !path.includes('/.config/mirkomil-panel/');
   const load = (): T | null => {
-    const raw = localStorage.getItem(key) ?? fakeFiles[path] ?? null;
+    const raw = inFs ? fsRead(path) ?? fakeFiles[path] ?? null : localStorage.getItem(key) ?? null;
     if (raw === null) return null;
+    if (opts.binary) return new TextEncoder().encode(raw) as unknown as T;
     return opts.syntax ? opts.syntax.parse(raw) : (raw as unknown as T);
   };
   const watchers = new Set<(c: T | null, tag: string) => void>();
@@ -113,8 +121,10 @@ function file<T>(path: string, opts: CockpitFileOptions<T> = {}): CockpitFile<T>
     path,
     read: async () => load(),
     replace: async (content) => {
-      if (content === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, opts.syntax ? opts.syntax.stringify(content) : String(content));
+      const text = content === null ? null : opts.syntax ? opts.syntax.stringify(content) : String(content);
+      if (inFs) fsWrite(path, text);
+      else if (text === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, text);
       const tag = String(Date.now());
       watchers.forEach((w) => w(content, tag));
       return tag;
@@ -126,6 +136,32 @@ function file<T>(path: string, opts: CockpitFileOptions<T> = {}): CockpitFile<T>
     },
     close: () => watchers.clear(),
   };
+}
+
+// fsreplace1 upload channel: acknowledges bytes slowly so progress bars move.
+function channel(options: Record<string, unknown>): CockpitChannel {
+  const handlers: Record<string, ((ev: unknown, msg: never) => void)[]> = {};
+  const emit = (ev: string, msg: unknown) => (handlers[ev] ?? []).forEach((h) => h(null, msg as never));
+  let size = 0;
+  return {
+    send: (data) => {
+      const n = typeof data === 'string' ? data.length : data.length;
+      size += n;
+      setTimeout(() => emit('control', { command: 'ack', bytes: n }), 30);
+    },
+    control: (msg: CockpitChannelControl) => {
+      if (msg.command === 'done') {
+        setTimeout(() => {
+          fsWrite(String(options.path), `uploaded ${size} bytes`);
+          emit('close', {});
+        }, 200);
+      }
+    },
+    close: (problem) => emit('close', { problem: problem ?? null, message: problem }),
+    addEventListener: (ev: string, cb: (ev: unknown, msg: never) => void) => {
+      (handlers[ev] ??= []).push(cb);
+    },
+  } as CockpitChannel;
 }
 
 function permission(): CockpitPermission {
@@ -277,6 +313,7 @@ export function createMockCockpit(): Cockpit {
     http,
     dbus,
     file,
+    channel,
     permission,
     get location() {
       return makeLocation();

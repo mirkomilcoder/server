@@ -145,4 +145,24 @@ def build_api(state: "GuardianState") -> Api:  # noqa: F821 (forward ref, see gu
             raise HttpError(400, "limit/before must be numbers")
         return {"events": state.db.events(limit, before)}
 
+    @api.route("GET", "/v1/rules")
+    async def rules_get(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+        return {"mode": state.rules.mode(), "rules": state.rules.describe()}
+
+    @api.route("POST", "/v1/rules", role="admin")
+    async def rules_set(p: Peer, _q: dict[str, str], b: Any) -> Any:
+        if not isinstance(b, dict):
+            raise HttpError(400, "JSON object expected")
+        try:
+            if "mode" in b:
+                state.rules.set_mode(str(b["mode"]))
+                state.db.add_event("action", "info", f"Avtomatik tuzatish rejimi: {b['mode']}", actor=p.user)
+            if "rule" in b:
+                state.rules.set_enabled(str(b["rule"]), bool(b.get("enabled")))
+                word = "yoqildi" if b.get("enabled") else "o'chirildi"
+                state.db.add_event("action", "info", f"Qoida {word}: {b['rule']}", actor=p.user)
+        except (ValueError, KeyError) as e:
+            raise HttpError(400, f"invalid: {e}")
+        return {"mode": state.rules.mode(), "rules": state.rules.describe()}
+
     return api

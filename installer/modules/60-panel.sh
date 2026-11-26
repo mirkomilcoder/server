@@ -35,14 +35,17 @@ module_run() {
   fi
   ok "Panel o'rnatilgan: Cockpit menyusida \"Mirkomil Panel\""
 
-  # Branded login page (logo, colors, Uzbek welcome). Other files fall back to Cockpit's defaults.
-  if dpkg -S "$BRANDING_DIR" >/dev/null 2>&1; then
-    warn "$BRANDING_DIR paketga tegishli — brending o'tkazib yuborildi"
-  else
-    mkdir -p "$BRANDING_DIR"
-    install_file "$MK_SRC/configs/cockpit/branding/branding.css" "$BRANDING_DIR/branding.css"
-    install_file "$MK_SRC/configs/cockpit/branding/logo.svg" "$BRANDING_DIR/logo.svg"
-    install_file "$MK_SRC/configs/cockpit/branding/logo.svg" "$BRANDING_DIR/favicon.svg"
-    ok "Kirish sahifasi brendlangan"
-  fi
+  # Branded login page (logo, colors, Uzbek welcome).
+  # cockpit-ws ships these files itself, so we never just overwrite them:
+  # dpkg-divert moves the package's file aside (*.distrib) — package upgrades
+  # then update the diverted copy, and --uninstall puts the original back.
+  mkdir -p "$BRANDING_DIR"
+  local f
+  for f in branding.css logo.svg; do
+    if ! dpkg-divert --list "$BRANDING_DIR/$f" | grep -q mirkomil; then
+      run dpkg-divert --package mirkomil-server --add --rename --divert "$BRANDING_DIR/$f.distrib" "$BRANDING_DIR/$f"
+    fi
+    install_file "$MK_SRC/configs/cockpit/branding/$f" "$BRANDING_DIR/$f"
+  done
+  ok "Kirish sahifasi brendlangan (asl fayllar: *.distrib)"
 }

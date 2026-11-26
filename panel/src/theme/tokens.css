@@ -16,7 +16,7 @@
   --r-pill: 99px;
 
   /* layout */
-  --sidebar-w: 236px;
+  --sidebar-w: 252px;
   --sidebar-w-collapsed: 76px;
   --page-pad-x: 32px;
   --page-pad-y: 28px;
@@ -28,26 +28,35 @@
   --t-fast: calc(160ms / var(--speed));
   --t-med: calc(260ms / var(--speed));
 
-  /* accent (overridden at runtime) */
-  --accent: #22D3EE;
-  --on-accent: #04212A;
+  /* accent (overridden at runtime from settings) */
+  --accent: #3B82F6;
+  --on-accent: #FFFFFF;
 
   --violet: #A78BFA;
   --info: #93C5FD;
+
+  /* One fixed color per metric — the same in KPI cards, icons and the chart. */
+  --c-cpu: #38BDF8;
+  --c-ram: #A78BFA;
+  --c-disk: #FBBF24;
+  --c-net: #34D399;
 }
 
 /* ---------- Dark (default) ---------- */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #070B16;
-  --sidebar: #0A0F1E;
-  --surface: #0F1629;
-  --surface-2: #0A0F1E;
-  --surface-raised: #121B33;
+  --bg: #060913;
+  --bg-glow: radial-gradient(1100px 560px at 78% -8%, rgba(59, 130, 246, .10), transparent 62%),
+             radial-gradient(800px 480px at -5% 105%, rgba(167, 139, 250, .06), transparent 60%);
+  --sidebar: #080D1A;
+  --surface: #0C1324;
+  --surface-2: #0A101F;
+  --surface-raised: #131C33;
   --console-bg: #060A14;
-  --border: rgba(255, 255, 255, .07);
-  --border-strong: rgba(255, 255, 255, .12);
+  --border: rgba(148, 163, 184, .10);
+  --border-strong: rgba(148, 163, 184, .18);
+  --card-highlight: linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 40%);
 
   --text: #E6EAF2;
   --text-muted: #A9B4C7;
@@ -81,6 +90,12 @@
 :root[data-theme='light'] {
   color-scheme: light;
   --bg: #F3F5F9;
+  --bg-glow: radial-gradient(1100px 560px at 78% -8%, rgba(59, 130, 246, .08), transparent 62%);
+  --card-highlight: none;
+  --c-cpu: #0284C7;
+  --c-ram: #7C3AED;
+  --c-disk: #D97706;
+  --c-net: #059669;
   --sidebar: #FFFFFF;
   --surface: #FFFFFF;
   --surface-2: #F4F6FA;
@@ -124,4 +139,5 @@
   --accent-35: color-mix(in srgb, var(--accent) 35%, transparent);
   --accent-18: color-mix(in srgb, var(--accent) 18%, transparent);
   --accent-10: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-grad: linear-gradient(135deg, color-mix(in srgb, var(--accent) 88%, #fff) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent) 80%, #000) 100%);
 }

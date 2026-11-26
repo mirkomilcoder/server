@@ -2,32 +2,40 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import {
   Activity,
   Bot,
-  Box,
+  Container,
+  Database,
+  DatabaseBackup,
   Download,
   FileText,
+  Folder,
   Globe,
+  House,
   LayoutGrid,
+  LineChart,
+  Network,
   Power,
+  Rocket,
   Server,
+  Settings,
   Shield,
-  ShieldCheck,
-  SlidersHorizontal,
-  Terminal,
+  SquareTerminal,
   type LucideIcon,
 } from 'lucide-react';
 import type { TranslationKey } from '@/i18n';
 
 /*
- * Every page in one place: sidebar, phone tab bar, command palette and the
- * router all read this list. Pages are lazy-loaded (one JS chunk each).
+ * Every page in one place: sidebar, phone tab bar, command palette, Simple-mode
+ * tiles and the router all read this list. Pages are lazy-loaded (one chunk each).
  *
  * To add a page: create src/pages/MyPage.tsx (default export), add an entry
  * here and a "nav.<id>" key in src/i18n/*.json.
  */
 
 export const PAGE_IDS = [
-  'dashboard', 'guardian', 'bots', 'services', 'docker', 'logs', 'updates',
-  'network', 'security', 'activity', 'terminal', 'settings', 'power',
+  'dashboard', 'services', 'bots', 'updates', 'activity', 'power',
+  'deploy', 'apps', 'files',
+  'monitoring', 'docker', 'domains', 'backup', 'databases', 'security', 'network',
+  'terminal', 'logs', 'settings',
 ] as const;
 export type PageId = (typeof PAGE_IDS)[number];
 
@@ -35,36 +43,50 @@ export interface PageProps {
   go: (id: PageId) => void;
 }
 
+/** Sidebar placement: top group, "Server" submenu, management, developer, bottom. */
+export type NavGroup = 'main' | 'server' | 'manage' | 'dev' | 'bottom';
+
 export interface PageDef {
   id: PageId;
   icon: LucideIcon;
   label: TranslationKey;
+  group: NavGroup;
   component: LazyExoticComponent<ComponentType<PageProps>>;
-  /** Where it shows in the sidebar. */
-  section: 'main' | 'bottom';
   danger?: boolean;
-  /** Milestone that delivers the page (shown on the placeholder until then). */
+  /** Shows the pulsing "Live" pill in the sidebar. */
+  live?: boolean;
+  /** Milestone that delivers the page (placeholder until then). */
   milestone?: string;
 }
 
-// Pages not built yet render a placeholder with the milestone that delivers them.
+// Pages not built yet render a placeholder naming the milestone that delivers them.
 const soon = (milestone: string) =>
   lazy(() => import('./Placeholder').then((m) => ({ default: m.placeholderFor(milestone) })));
 
 export const PAGES: PageDef[] = [
-  { id: 'dashboard', icon: LayoutGrid, label: 'nav.dashboard', section: 'main', component: lazy(() => import('./Dashboard')) },
-  { id: 'guardian', icon: ShieldCheck, label: 'nav.guardian', section: 'main', component: lazy(() => import('./GuardianPage')) },
-  { id: 'bots', icon: Bot, label: 'nav.bots', section: 'main', component: soon('M3'), milestone: 'M3' },
-  { id: 'services', icon: Server, label: 'nav.services', section: 'main', component: soon('M3'), milestone: 'M3' },
-  { id: 'docker', icon: Box, label: 'nav.docker', section: 'main', component: soon('M5'), milestone: 'M5' },
-  { id: 'logs', icon: FileText, label: 'nav.logs', section: 'main', component: soon('M3'), milestone: 'M3' },
-  { id: 'updates', icon: Download, label: 'nav.updates', section: 'main', component: soon('M3'), milestone: 'M3' },
-  { id: 'network', icon: Globe, label: 'nav.network', section: 'main', component: soon('M6'), milestone: 'M6' },
-  { id: 'security', icon: Shield, label: 'nav.security', section: 'main', component: soon('M4'), milestone: 'M4' },
-  { id: 'activity', icon: Activity, label: 'nav.activity', section: 'main', component: soon('M3'), milestone: 'M3' },
-  { id: 'terminal', icon: Terminal, label: 'nav.terminal', section: 'main', component: lazy(() => import('./TerminalPage')) },
-  { id: 'settings', icon: SlidersHorizontal, label: 'nav.settings', section: 'bottom', component: lazy(() => import('./SettingsPage')) },
-  { id: 'power', icon: Power, label: 'nav.power', section: 'bottom', danger: true, component: soon('M3'), milestone: 'M3' },
+  { id: 'dashboard', icon: House, label: 'nav.home', group: 'main', component: lazy(() => import('./Dashboard')) },
+  { id: 'deploy', icon: Rocket, label: 'nav.deploy', group: 'main', component: soon('M5'), milestone: 'M5' },
+  { id: 'apps', icon: LayoutGrid, label: 'nav.apps', group: 'main', component: soon('M5'), milestone: 'M5' },
+  { id: 'files', icon: Folder, label: 'nav.files', group: 'main', component: lazy(() => import('./FilesPage')) },
+
+  { id: 'services', icon: Server, label: 'nav.services', group: 'server', component: soon('M4'), milestone: 'M4' },
+  { id: 'bots', icon: Bot, label: 'nav.bots', group: 'server', component: soon('M5'), milestone: 'M5' },
+  { id: 'updates', icon: Download, label: 'nav.updates', group: 'server', component: soon('M4'), milestone: 'M4' },
+  { id: 'activity', icon: Activity, label: 'nav.activity', group: 'server', component: soon('M4'), milestone: 'M4' },
+  { id: 'power', icon: Power, label: 'nav.power', group: 'server', danger: true, component: soon('M4'), milestone: 'M4' },
+
+  { id: 'monitoring', icon: LineChart, label: 'nav.monitoring', group: 'manage', live: true, component: lazy(() => import('./GuardianPage')) },
+  { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: soon('M5'), milestone: 'M5' },
+  { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: soon('M6'), milestone: 'M6' },
+  { id: 'backup', icon: DatabaseBackup, label: 'nav.backup', group: 'manage', component: soon('M8'), milestone: 'M8' },
+  { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: soon('M5'), milestone: 'M5' },
+  { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: soon('M4'), milestone: 'M4' },
+  { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: soon('M6'), milestone: 'M6' },
+
+  { id: 'terminal', icon: SquareTerminal, label: 'nav.terminal', group: 'dev', component: lazy(() => import('./TerminalPage')) },
+  { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: soon('M4'), milestone: 'M4' },
+
+  { id: 'settings', icon: Settings, label: 'nav.settings', group: 'bottom', component: lazy(() => import('./SettingsPage')) },
 ];
 
 export const pageById = (id: PageId): PageDef => PAGES.find((p) => p.id === id) ?? PAGES[0];

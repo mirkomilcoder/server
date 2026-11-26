@@ -14,7 +14,7 @@ module_run() {
   security_ssh
 }
 
-ssh_port() { sshd -T 2>/dev/null | awk '/^port /{print $2; exit}'; }
+ssh_port() { sshd -T 2>/dev/null | awk '/^port / && !done {print $2; done=1}'; }
 
 security_ufw() {
   apt_install ufw
@@ -56,7 +56,8 @@ ssh_key_login_verified() {
   keys="$home/.ssh/authorized_keys"
   [[ -s "$keys" ]] || return 1
   ssh-keygen -lf "$keys" >/dev/null 2>&1 || return 1
-  journalctl -q --since "-60 days" -t sshd -t sshd-session -g "Accepted publickey for $user from" 2>/dev/null | grep -q .
+  # -r -n 1: newest match only (no pipe → no SIGPIPE false negatives)
+  [[ -n "$(journalctl -q -r -n 1 --since "-60 days" -t sshd -t sshd-session -g "Accepted publickey for $user from" 2>/dev/null)" ]]
 }
 
 security_ssh() {

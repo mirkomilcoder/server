@@ -9,7 +9,7 @@ import { useMotion } from '@/theme/motion';
  */
 export function Sparkline({ data, color, max, height = 34 }: { data: number[]; color: string; max?: number; height?: number }) {
   const m = useMotion();
-  const clip = useId();
+  const clip = useId().replace(/:/g, '');
   const w = 200;
   const d = useMemo(() => {
     if (data.length < 2) return '';

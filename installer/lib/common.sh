@@ -118,11 +118,13 @@ load_env_file() {
       # strip one level of matching quotes
       if [[ "$val" =~ ^\"(.*)\"$ || "$val" =~ ^\'(.*)\'$ ]]; then val="${BASH_REMATCH[1]}"; fi
       # environment variables given on the command line win over the file
-      [[ -z "${!key+x}" ]] && printf -v "$key" '%s' "$val"
+      if [[ -z "${!key+x}" ]]; then printf -v "$key" '%s' "$val"; fi
     else
       warn "$file: noto'g'ri qator o'tkazib yuborildi: ${line:0:40}"
     fi
   done <"$file"
+  # explicit: a false test on the last line must not become the function's status (set -e)
+  return 0
 }
 
 # set_env_key FILE KEY VALUE — add or replace one line (value is quoted).
@@ -182,7 +184,9 @@ install_template() {
 # ---------- apt ----------
 
 export DEBIAN_FRONTEND=noninteractive
-APT_OPTS=(-y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+# Retries: home internet blips (or a mirror refusing for a minute) must not abort the install.
+APT_NET=(-o Acquire::Retries=5 -o Acquire::http::Timeout=30)
+APT_OPTS=(-y -q "${APT_NET[@]}" -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
 pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "install ok installed"; }
 
@@ -199,7 +203,7 @@ apt_install() {
 MK_APT_UPDATED=0
 apt_update() {
   ((MK_APT_UPDATED)) && return 0
-  run apt-get update -q
+  run apt-get update -q "${APT_NET[@]}"
   MK_APT_UPDATED=1
 }
 
@@ -225,6 +229,8 @@ add_apt_repo() {
 }
 
 # ---------- misc ----------
+# NOTE: never use `awk '{...; exit}'` after a pipe here: with `set -o pipefail`
+# the writer gets SIGPIPE (exit 141) and the installer aborts.
 
 os_release() {
   # subshell: os-release variables must not leak into the installer
@@ -232,15 +238,15 @@ os_release() {
   (. /etc/os-release && printf '%s' "${!1:-}")
 }
 
-default_iface() { ip -4 route show default 2>/dev/null | awk '{print $5; exit}'; }
+default_iface() { ip -4 route show default 2>/dev/null | awk '!done {print $5; done=1}'; }
 
 # CIDR of the LAN the default route goes through, e.g. 192.168.1.0/24.
 detect_lan_cidr() {
   local iface; iface="$(default_iface)"
   [[ -n "$iface" ]] || return 1
-  ip -4 route show dev "$iface" scope link proto kernel 2>/dev/null | awk '{print $1; exit}'
+  ip -4 route show dev "$iface" scope link proto kernel 2>/dev/null | awk '!done {print $1; done=1}'
 }
 
-primary_ip() { ip -4 -o addr show dev "$(default_iface)" 2>/dev/null | awk '{print $4; exit}' | cut -d/ -f1; }
+primary_ip() { ip -4 -o addr show dev "$(default_iface)" 2>/dev/null | awk '!done {print $4; done=1}' | cut -d/ -f1; }
 
-tailscale_ip() { have tailscale && tailscale ip -4 2>/dev/null | head -n1; }
+tailscale_ip() { have tailscale && tailscale ip -4 2>/dev/null | awk '!d {print; d=1}'; }

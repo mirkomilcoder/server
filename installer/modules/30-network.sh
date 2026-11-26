@@ -16,7 +16,7 @@ module_run() {
   apt_update
   apt_install tailscale
   run systemctl enable --now tailscaled
-  ok "Tailscale o'rnatilgan ($(tailscale version 2>/dev/null | head -n1))"
+  ok "Tailscale o'rnatilgan ($(tailscale version 2>/dev/null | awk '!d {print; d=1}'))"
 
   local state; state="$(tailscale status --json 2>/dev/null | jq -r '.BackendState // "Unknown"')"
   if [[ "$state" == Running ]]; then

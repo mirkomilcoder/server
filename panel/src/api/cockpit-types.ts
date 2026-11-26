@@ -110,6 +110,7 @@ export interface Cockpit {
   permission(options?: { admin?: boolean; group?: string }): CockpitPermission;
   readonly location: CockpitLocation;
   jump(path: string | string[], host?: string | null): void;
+  logout(reload?: boolean): void;
   hidden: boolean;
   addEventListener(ev: 'locationchanged' | 'visibilitychange', cb: () => void): void;
   removeEventListener(ev: 'locationchanged' | 'visibilitychange', cb: () => void): void;

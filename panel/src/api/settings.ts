@@ -12,7 +12,7 @@ import { runAction } from './run';
 export const WIDGET_IDS = ['kpis', 'chart', 'bots', 'services', 'logs', 'security'] as const;
 export type WidgetId = (typeof WIDGET_IDS)[number];
 
-export const ACCENT_PRESETS = ['#22D3EE', '#A78BFA', '#34D399', '#FB923C'] as const;
+export const ACCENT_PRESETS = ['#3B82F6', '#22D3EE', '#A78BFA', '#34D399', '#FB923C'] as const;
 
 const widgetList = z
   .array(z.object({ id: z.enum(WIDGET_IDS), visible: z.boolean() }))
@@ -27,7 +27,7 @@ const widgetList = z
 export const settingsSchema = z.object({
   mode: z.enum(['simple', 'advanced', 'compact']).catch('advanced'),
   theme: z.enum(['dark', 'light', 'auto']).catch('dark'),
-  accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).catch('#22D3EE'),
+  accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).catch('#3B82F6'),
   animations: z.enum(['on', 'reduced', 'off']).catch('on'),
   animationSpeed: z.number().min(0.5).max(2).catch(1),
   language: z.enum(['uz', 'ru', 'en']).catch('uz'),

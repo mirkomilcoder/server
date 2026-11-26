@@ -29,12 +29,13 @@ module_run() {
   if [[ "$pw" == no ]]; then printf '  Parol bilan kirish o‘chirilgan — faqat SSH kalit.\n'; fi
 
   printf '\n%sQo‘lda qilinadigan ishlar:%s\n' "$C_BOLD" "$C_RESET"
+  local n=0
   if [[ "$MK_TAILSCALE" == yes ]]; then
-    printf '  1. https://login.tailscale.com/admin/machines → "%s" → ⋯ → "Disable key expiry"\n' "$MK_HOSTNAME"
+    printf '  %d. https://login.tailscale.com/admin/machines → "%s" → ⋯ → "Disable key expiry"\n' $((++n)) "$MK_HOSTNAME"
   fi
-  printf '  2. BIOS: "Restore on AC power loss" = On (tok kelganda server o‘zi yoqiladi)\n'
+  printf '  %d. BIOS: "Restore on AC power loss" = On (tok kelganda server o‘zi yoqiladi)\n' $((++n))
   if [[ "$pw" != no ]]; then
-    printf '  3. SSH kalitini qo‘shing (ssh-copy-id), kalit bilan kiring, so‘ng: sudo mirkomil repair\n'
+    printf '  %d. SSH kalitini qo‘shing (ssh-copy-id), kalit bilan kiring, so‘ng: sudo mirkomil repair\n' $((++n))
   fi
 
   printf '\nHolatni tekshirish: %smirkomil doctor%s    Log: %s\n\n' "$C_BOLD" "$C_RESET" "$MK_LOG"

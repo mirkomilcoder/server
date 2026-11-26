@@ -107,3 +107,13 @@ setup() {
   run valid_domain localhost;           [ "$status" -ne 0 ]
   run valid_domain "a..uz";             [ "$status" -ne 0 ]
 }
+
+@test "load_env_file succeeds when the last key is already set (re-run regression)" {
+  f="$BATS_TEST_TMPDIR/c.env"
+  printf 'MK_A="1"
+MK_B="2"
+' >"$f"
+  MK_B=already
+  run load_env_file "$f"
+  [ "$status" -eq 0 ]
+}

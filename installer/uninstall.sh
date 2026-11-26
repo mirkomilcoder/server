@@ -16,9 +16,6 @@ MANAGED_FILES=(
   /etc/cockpit/cockpit.conf
   /etc/docker/daemon.json
   /usr/local/bin/mirkomil
-  /usr/share/cockpit/branding/ubuntu/branding.css
-  /usr/share/cockpit/branding/ubuntu/logo.svg
-  /usr/share/cockpit/branding/ubuntu/favicon.svg
   /etc/systemd/system/mirkomil-guardian.service
   /etc/systemd/system/mirkomil-helper.service
   /etc/tmpfiles.d/mirkomil.conf
@@ -57,7 +54,13 @@ uninstall_main() {
   rm -rf /usr/share/cockpit/mirkomil
   systemctl daemon-reload >>"$MK_LOG" 2>&1 || true
   info "Guardian tarixi saqlandi: /var/lib/mirkomil/guardian (kerak bo'lmasa o'chiring)"
-  rmdir /usr/share/cockpit/branding/ubuntu 2>/dev/null || true
+  # restore Cockpit's own branding files (see 60-panel.sh: dpkg-divert)
+  for f in branding.css logo.svg; do
+    if dpkg-divert --list "/usr/share/cockpit/branding/ubuntu/$f" | grep -q mirkomil; then
+      rm -f "/usr/share/cockpit/branding/ubuntu/$f"
+      run dpkg-divert --package mirkomil-server --remove --rename "/usr/share/cockpit/branding/ubuntu/$f" || true
+    fi
+  done
   rm -rf "$MK_OPT"
   # installer state files only: Guardian history (a subdirectory) is kept
   find "$MK_STATE" -maxdepth 1 -type f -delete 2>/dev/null || true

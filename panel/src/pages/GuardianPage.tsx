@@ -6,6 +6,7 @@ import { useSettings } from '@/state/settings';
 import { Card, MotionGrid } from '@/widgets/Card';
 import { ScoreRing } from '@/widgets/ScoreRing';
 import { RowsSkeleton } from '@/widgets/Skeletons';
+import { HealingCard } from '@/widgets/HealingCard';
 import type { PageProps } from './registry';
 
 /* Nazorat: Guardian health score, live checks and the problem/recovery timeline. */
@@ -42,6 +43,7 @@ export default function GuardianPage(_props: PageProps) {
   const { settings } = useSettings();
   const status = usePoll(guardian.status, Math.max(settings.refreshMs, 5000));
   const events = usePoll(() => guardian.events(50), 15000);
+  const me = usePoll(guardian.me, 60000);
   const fmt = new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 
   if (status.error instanceof GuardianUnavailable) {
@@ -102,6 +104,7 @@ export default function GuardianPage(_props: PageProps) {
         </Card>
       </MotionGrid>
       <MotionGrid className="grid">
+        <HealingCard isAdmin={me.data?.role === 'admin'} />
         <Card title={t('guardian.timeline')}>
           {!events.data ? (
             <RowsSkeleton rows={4} />

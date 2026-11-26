@@ -91,7 +91,53 @@ def v_unit_restart(a: dict[str, Any]) -> Any:
     return "restarted"
 
 
+SIZE_RE = re.compile(r"^[1-9][0-9]{0,4}[MG]$")
+
+
+def v_apt_clean(_a: dict[str, Any]) -> Any:
+    _run(["apt-get", "clean"])
+    return "apt cache cleaned"
+
+
+def v_journal_vacuum(a: dict[str, Any]) -> Any:
+    size = str(a.get("size", "500M"))
+    if not SIZE_RE.match(size):
+        raise VerbError("invalid size")
+    return _run(["journalctl", f"--vacuum-size={size}"]).strip()[-300:] or "journal vacuumed"
+
+
+def v_docker_prune(_a: dict[str, Any]) -> Any:
+    # Dangling images + build cache only. NEVER volumes, never running containers' images.
+    if not Path("/usr/bin/docker").exists():
+        return "docker not installed"
+    out = _run(["docker", "image", "prune", "--force"], timeout=300)
+    out += _run(["docker", "builder", "prune", "--force"], timeout=300)
+    return out.strip()[-300:]
+
+
+def v_network_restart(_a: dict[str, Any]) -> Any:
+    for unit in ("systemd-networkd.service", "NetworkManager.service"):
+        state = subprocess.run(["systemctl", "is-active", unit], capture_output=True, text=True).stdout.strip()
+        if state == "active":
+            _run(["systemctl", "restart", "--", unit])
+            return f"restarted {unit}"
+    raise VerbError("no known network service is active")
+
+
+def v_system_reboot(a: dict[str, Any]) -> Any:
+    reason = re.sub(r"[^\w .,:+-]", "", str(a.get("reason", "guardian")))[:120]
+    subprocess.run(["logger", "-t", "mirkomil-panel", "--", f"guardian system.reboot {reason}"], check=False)
+    # +1 minute: gives Guardian time to send the Telegram alert first
+    _run(["shutdown", "--reboot", "+1", f"Mirkomil Guardian: {reason}"])
+    return "reboot scheduled in 1 minute"
+
+
 VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "apt.clean": v_apt_clean,
+    "journal.vacuum": v_journal_vacuum,
+    "docker.prune": v_docker_prune,
+    "network.restart": v_network_restart,
+    "system.reboot": v_system_reboot,
     "ufw.status": v_ufw_status,
     "fail2ban.status": v_fail2ban_status,
     "docker.ps": v_docker_ps,

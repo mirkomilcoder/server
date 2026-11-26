@@ -1,8 +1,8 @@
 """Guardian: collects metrics, runs checks, records problems, sends alerts,
 and serves the local API — one asyncio process running as user "mirkomil".
 
-Self-healing rules (restart, cleanup, …) arrive in M4; in M3 Guardian only
-observes and reports.
+Self-healing rules live in rules.py; they start in dry-run mode until an
+admin switches them to automatic from the panel.
 """
 
 from __future__ import annotations
@@ -16,11 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from . import collectors as c
-from . import telegram
+from . import helper, telegram
 from .api import build_api
 from .checks import CheckResult, evaluate, health_score, worst
 from .config import RUN, STATE, Config, load
 from .db import DB
+from .rules import RuleEngine
 
 log = logging.getLogger("mirkomil.guardian")
 
@@ -38,6 +39,7 @@ class GuardianState:
         self.slow: dict[str, Any] = {}  # facts refreshed less often
         self.started = int(time.time())
         self.bad_streak: dict[str, int] = {}
+        self.rules = RuleEngine(db, helper.call)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -50,7 +52,20 @@ class GuardianState:
             "score": health_score(self.checks),
             "status": worst(self.checks),
             "telegram": self.cfg.telegram_enabled,
+            "mode": self.rules.mode(),
         }
+
+    def heal(self) -> None:
+        """Run self-healing rules for the current check results; record + alert."""
+        for rec in self.rules.evaluate(self.checks, self.facts()):
+            sev = {"ok": "info", "dryrun": "info", "failed": "warn", "escalated": "crit"}[rec["result"]]
+            label = {"ok": "Bajarildi", "dryrun": "Sinov rejimi", "failed": "Muvaffaqiyatsiz", "escalated": "Qo'lda tekshirish kerak"}[rec["result"]]
+            target = rec.get("args", {}).get("unit", "")
+            title = f"{label}: {rec['title']}" + (f" ({target})" if target else "")
+            self.db.add_event("action", sev, title, rec.get("detail", ""), check_id=rec["rule"])
+            if rec["result"] != "dryrun" and self.cfg.telegram_enabled:
+                telegram.send(self.cfg.telegram_token, self.cfg.telegram_chat_id,
+                              telegram.format_alert(self.cfg.hostname, sev if sev != "info" else "ok", title, rec.get("detail", "")))
 
     # ---------- collection ----------
 
@@ -132,6 +147,7 @@ async def run_loop(state: GuardianState, stop: asyncio.Event) -> None:
             transitions = state.process_checks(evaluate(state.facts(), state.cfg.thresholds))
             if transitions:
                 await loop.run_in_executor(None, state.alert, transitions)
+            await loop.run_in_executor(None, state.heal)
             if time.time() - last_prune > 3600:
                 state.db.prune(state.cfg.retention_days)
                 last_prune = time.time()

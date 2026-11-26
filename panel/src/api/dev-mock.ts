@@ -142,6 +142,17 @@ function makeLocation(): CockpitLocation {
 }
 
 // Fake Guardian API (same JSON shapes as agent/mirkomil/api.py).
+const rulesState = {
+  mode: 'dryrun',
+  rules: [
+    { id: 'restart-failed', title: 'Ishlamay qolgan servisni qayta ishga tushirish', enabled: true, risky: false, cooldown_s: 300, max_attempts: 3, last_action: 0, attempts: 0 },
+    { id: 'disk-cleanup', title: 'Diskni tozalash (apt kesh, jurnal, eski Docker obrazlari)', enabled: true, risky: false, cooldown_s: 1800, max_attempts: 3, last_action: 0, attempts: 0 },
+    { id: 'tailscale-restart', title: "Tailscale'ni qayta ulash", enabled: true, risky: false, cooldown_s: 600, max_attempts: 3, last_action: 0, attempts: 0 },
+    { id: 'network-recover', title: 'Internet uzildi: tarmoqni qayta ishga tushirish', enabled: true, risky: false, cooldown_s: 300, max_attempts: 2, last_action: 0, attempts: 0 },
+    { id: 'network-reboot', title: "Internet uzoq vaqt yo'q: serverni qayta yoqish", enabled: false, risky: true, cooldown_s: 21600, max_attempts: 1, last_action: 0, attempts: 0 },
+  ],
+};
+
 function http(): ReturnType<Cockpit['http']> {
   const now = () => Math.floor(Date.now() / 1000);
   const series = (span: number, base: number, amp: number) =>
@@ -164,6 +175,7 @@ function http(): ReturnType<Cockpit['http']> {
       const span = { '1h': 3600, '24h': 86400, '7d': 604800 }[p.range as '1h'] ?? 3600;
       return { range: p.range, series: { cpu: series(span, 25, 12), mem: series(span, 40, 4) } };
     },
+    '/v1/rules': () => rulesState,
     '/v1/events': () => ({
       events: [
         { id: 4, ts: now() - 600, kind: 'problem', severity: 'warn', title: '4 ta xavfsizlik yangilanishi kutmoqda', detail: '', actor: 'guardian' },
@@ -179,7 +191,12 @@ function http(): ReturnType<Cockpit['http']> {
       if (!r) throw { status: 404, reason: 'Not Found', message: 'not found' };
       return JSON.stringify(r(params ?? {}));
     },
-    post: async () => '{}',
+    post: async (_path, body) => {
+      const b = JSON.parse(String(body ?? '{}')) as { mode?: string; rule?: string; enabled?: boolean };
+      if (b.mode) rulesState.mode = b.mode;
+      if (b.rule) rulesState.rules = rulesState.rules.map((r) => (r.id === b.rule ? { ...r, enabled: !!b.enabled } : r));
+      return JSON.stringify(rulesState);
+    },
     close: () => {},
   };
 }

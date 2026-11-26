@@ -13,6 +13,7 @@ export interface Point {
   t: number; // ms epoch
   cpu: number;
   ram: number; // %
+  disk: number; // %
   net: number; // Mbit/s (rx + tx)
 }
 
@@ -33,6 +34,7 @@ export function MetricsProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<Point[]>([]);
   const [error, setError] = useState<string | null>(null);
   const sampler = useRef(new ProcSampler());
+  const diskPct = useRef(0);
   const [hidden, setHidden] = useState(() => cockpit().hidden);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function MetricsProvider({ children }: { children: ReactNode }) {
             t: Date.now(),
             cpu: s.cpuPct,
             ram: s.memTotal ? (s.memUsed / s.memTotal) * 100 : 0,
+            disk: diskPct.current,
             net: ((s.rxBps ?? 0) + (s.txBps ?? 0)) / 1e6,
           };
           setHistory((h) => [...h.filter((x) => x.t > p.t - HISTORY_MS), p]);
@@ -63,7 +66,13 @@ export function MetricsProvider({ children }: { children: ReactNode }) {
         if (alive) setError(e instanceof Error ? e.message : String(e));
       }
     };
-    const diskTick = () => sampleDisk().then((d) => alive && setDisk(d)).catch(() => {});
+    const diskTick = () =>
+      sampleDisk()
+        .then((d) => {
+          diskPct.current = (d.used / d.size) * 100;
+          if (alive) setDisk(d);
+        })
+        .catch(() => {});
     tick();
     // second sample quickly so CPU % appears without waiting a full interval
     const first = window.setTimeout(tick, 1000);

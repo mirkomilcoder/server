@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 import { useT } from '@/i18n';
 import { useToast } from '@/state/toasts';
+import { useSettings } from '@/state/settings';
 import { answer, cancelStart, startAdmin, stopAdmin, type Prompt } from '@/api/superuser';
 import { Modal } from './Modal';
 
@@ -12,6 +13,7 @@ import { Modal } from './Modal';
 export function AdminDialog({ open, onClose, isAdmin }: { open: boolean; onClose: () => void; isAdmin: boolean }) {
   const { t } = useT();
   const toast = useToast();
+  const rememberAdmin = useSettings().settings.rememberAdmin;
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,7 +32,7 @@ export function AdminDialog({ open, onClose, isAdmin }: { open: boolean; onClose
       setBusy(false);
       if (p.error) setError(p.error);
       requestAnimationFrame(() => input.current?.focus());
-    })
+    }, rememberAdmin)
       .then(() => {
         toast({ kind: 'success', title: t('admin.enabled') });
         finish();

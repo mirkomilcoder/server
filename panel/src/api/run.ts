@@ -22,8 +22,11 @@ export class ActionError extends Error {
 }
 
 export interface RunOptions {
-  /** Receive stdout chunks as they arrive (apt upgrade, journalctl -f, …). */
-  onOutput?: (chunk: string) => void;
+  /**
+   * Receive stdout chunks as they arrive (apt upgrade, journalctl -f, …). For `pty`
+   * actions `send` answers interactive prompts.
+   */
+  onOutput?: (chunk: string, send: (input: string) => void) => void;
   /** Lets the caller stop a long-running process. */
   signal?: AbortSignal;
   /** Run an `elevatable` action as root (file manager admin mode). Ignored for other actions. */
@@ -47,12 +50,19 @@ export async function runAction<K extends ActionId>(
   const elevated = !!def.privileged || (!!def.elevatable && !!opts.asAdmin);
   if (elevated) spawnOpts.superuser = 'require';
   if (def.environ) spawnOpts.environ = def.environ;
+  if (def.pty) {
+    spawnOpts.pty = true;
+    spawnOpts.err = 'out';
+  }
 
   const audit = def.audit ?? elevated;
   const target = def.target ? def.target(parsed.data) : '-';
 
   const proc = cockpit().spawn(argv, spawnOpts);
-  if (opts.onOutput) proc.stream(opts.onOutput);
+  if (opts.onOutput) {
+    const cb = opts.onOutput;
+    proc.stream((chunk) => cb(chunk, (input) => proc.input(input, true)));
+  }
   opts.signal?.addEventListener('abort', () => proc.close('terminated'), { once: true });
 
   try {

@@ -4,8 +4,8 @@ import { ChevronDown, PanelLeftClose, PanelLeftOpen, Server } from 'lucide-react
 import { useT } from '@/i18n';
 import { useSettings } from '@/state/settings';
 import { useMotion } from '@/theme/motion';
-import { useBrand } from '@/state/guardian';
-import { PAGES, type NavGroup, type PageDef, type PageId } from '@/pages/registry';
+import { useBrand, useGuardian } from '@/state/guardian';
+import { pagesFor, type NavGroup, type PageDef, type PageId } from '@/pages/registry';
 import { BrandMark } from './BrandMark';
 
 interface Props {
@@ -23,6 +23,7 @@ export function Sidebar({ page, go }: Props) {
   const m = useMotion();
   const { brand, domain } = useBrand();
   const collapsed = settings.sidebarCollapsed;
+  const PAGES = pagesFor(useGuardian().me?.role);
   const serverPages = PAGES.filter((p) => p.group === 'server');
   const inServer = serverPages.some((p) => p.id === page);
   const [serverOpen, setServerOpen] = useState(inServer);

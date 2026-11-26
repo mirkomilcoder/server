@@ -35,6 +35,8 @@ export const settingsSchema = z.object({
   fontSize: z.enum(['s', 'm', 'l']).catch('m'),
   startPage: z.string().regex(/^[a-z-]{2,20}$/).catch('dashboard'),
   sidebarCollapsed: z.boolean().catch(false),
+  /** Turn admin mode back on automatically at the next login (Cockpit reuses the login password). */
+  rememberAdmin: z.boolean().catch(false),
   widgets: widgetList.catch(WIDGET_IDS.map((id) => ({ id, visible: true }))),
 });
 

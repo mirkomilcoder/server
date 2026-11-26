@@ -141,6 +141,10 @@ export interface AppInfo {
   mem_mb: number;
   cpus: number;
   autodeploy?: number;
+  /** Published as a site: null = default for the type, 1 = yes, 0 = no. */
+  public?: number | null;
+  /** required = web framework (always a site) · optional = bot/worker/other · auto = type unknown yet */
+  site_mode?: 'required' | 'optional' | 'auto';
   created_by: string;
   created_at: number;
   current: { deploy_id?: string; container?: string; web?: boolean; type?: AppType; port?: number };
@@ -163,6 +167,8 @@ export interface NewApp {
   mem_mb: number;
   cpus: number;
   env: Record<string, string>;
+  /** null = default for the detected type (web frameworks: yes, bots: no). */
+  public?: boolean | null;
 }
 
 export interface DockerContainer {
@@ -192,6 +198,52 @@ export const apps = {
   remove: (name: string, confirm: string) => post<{ deleted: string }>(`/v1/apps/${encodeURIComponent(name)}/delete`, { confirm }),
   deployKey: (name: string) => post<{ public_key: string }>(`/v1/apps/${encodeURIComponent(name)}/deploykey`, {}),
   setAutodeploy: (name: string, on: boolean) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { autodeploy: on }),
+  setPublic: (name: string, on: boolean | null) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { public: on }),
+};
+
+// ---------------------------------------------------------------- users (admin)
+
+export type Role = 'admin' | 'developer' | 'viewer';
+
+export interface PanelUser {
+  user: string;
+  uid: number;
+  name: string;
+  role: Role | 'none';
+  /** member of sudo: the server owner, never changed from the panel */
+  owner: boolean;
+  managed: boolean;
+  locked: boolean;
+  must_change: boolean;
+  groups: string[];
+  email: string | null;
+  invited_by: string | null;
+  invited_at: number | null;
+  apps: string[];
+}
+
+export interface Invite {
+  user: string;
+  role: Role;
+  password: string;
+  panel_url: string;
+  email?: string | null;
+  apps?: string[];
+  access?: string;
+}
+
+const u = (name: string, tail: string) => `/v1/users/${encodeURIComponent(name)}/${tail}`;
+
+export const users = {
+  list: () => get<{ users: PanelUser[] }>('/v1/users'),
+  groups: () => get<{ groups: { name: string; about: string }[] }>('/v1/users/groups'),
+  create: (b: { user: string; role: Role; name: string; email: string; apps: string[] }) => post<Invite>('/v1/users', b),
+  setRole: (name: string, role: Role) => post<{ role: Role }>(u(name, 'role'), { role }),
+  setLocked: (name: string, locked: boolean) => post<{ locked: boolean }>(u(name, 'lock'), { locked }),
+  resetPassword: (name: string) => post<Invite>(u(name, 'password'), {}),
+  setApps: (name: string, list: string[]) => post<{ apps: string[] }>(u(name, 'apps'), { apps: list }),
+  setGroups: (name: string, list: string[]) => post<{ groups: string[] }>(u(name, 'groups'), { groups: list }),
+  remove: (name: string) => post<{ deleted: string }>(u(name, 'delete'), { confirm: name }),
 };
 
 export interface DatabaseInfo {

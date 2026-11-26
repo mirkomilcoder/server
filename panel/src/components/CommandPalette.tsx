@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useT } from '@/i18n';
 import { useMotion } from '@/theme/motion';
-import { PAGES, type PageId } from '@/pages/registry';
+import { pagesFor, type PageId } from '@/pages/registry';
+import { useGuardian } from '@/state/guardian';
 
 /*
  * Ctrl+K palette. M2: pages. Later milestones add bots, services and
@@ -27,15 +28,16 @@ export function CommandPalette({ open, onClose, go }: { open: boolean; onClose: 
   const { t } = useT();
   const m = useMotion();
   const [q, setQ] = useState('');
+  const pages = pagesFor(useGuardian().me?.role);
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
   const results = useMemo(
     () =>
-      PAGES.map((p) => ({ p, score: fuzzyScore(q, `${t(p.label)} ${p.id}`) }))
+      pages.map((p) => ({ p, score: fuzzyScore(q, `${t(p.label)} ${p.id}`) }))
         .filter((r) => r.score >= 0)
         .sort((a, b) => b.score - a.score),
-    [q, t],
+    [q, t, pages],
   );
 
   useEffect(() => {

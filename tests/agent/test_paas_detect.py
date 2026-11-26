@@ -73,3 +73,24 @@ def test_module_names_cannot_inject_into_templates(tmp_path):
     make(tmp_path, {"manage.py": "", "requirements.txt": "django", "a;rm -rf/wsgi.py": "x"})
     with pytest.raises(DetectError):
         detect(tmp_path)
+
+
+def test_site_policy_web_frameworks_always_public_bots_opt_in():
+    from mirkomil.paas.detect import is_public, site_mode
+    for kind in ("django", "fastapi", "flask", "static"):
+        assert site_mode(kind) == "required"
+        assert is_public(kind, False) is True  # can't be switched off
+    assert site_mode("bot") == "optional"
+    assert is_public("bot", None) is False  # aiogram etc.: private unless asked (webhook)
+    assert is_public("bot", True) is True
+    assert is_public("node", None) is True and is_public("node", False) is False
+    assert is_public("dockerfile", False) is False
+    assert site_mode(None) == "auto"
+
+
+def test_spec_public_flag_is_normalised():
+    from mirkomil.paas.engine import validate_spec
+    base = {"app": "kino-bot", "repo": "https://github.com/a/b", "deploy_id": "20261127-101010-abcd"}
+    assert validate_spec(base)["public"] is None
+    assert validate_spec({**base, "public": 1})["public"] is True
+    assert validate_spec({**base, "public": 0})["public"] is False

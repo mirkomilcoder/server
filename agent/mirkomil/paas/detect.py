@@ -17,6 +17,27 @@ SUPPORTED = ("dockerfile", "django", "fastapi", "flask", "bot", "node", "static"
 # app types that serve HTTP (get a route + health check); bots are workers
 WEB_TYPES = {"dockerfile", "django", "fastapi", "flask", "node", "static"}
 
+# Is the app published as a site (<app>.<domain>)?
+#   required — web frameworks exist to serve a site: always public
+#   optional — bots/workers (aiogram…) default to private; turn on e.g. for a webhook;
+#              node / own Dockerfile can be either, default public
+SITE_REQUIRED = {"django", "fastapi", "flask", "static"}
+SITE_DEFAULT = {"bot": False, "node": True, "dockerfile": True}
+
+
+def site_mode(kind: str | None) -> str:
+    """'required' | 'optional' | 'auto' (type not known yet)."""
+    if kind is None:
+        return "auto"
+    return "required" if kind in SITE_REQUIRED else "optional"
+
+
+def is_public(kind: str, public: bool | None) -> bool:
+    """Final decision for a detected type and the app's setting (None = default)."""
+    if kind in SITE_REQUIRED:
+        return True
+    return SITE_DEFAULT.get(kind, True) if public is None else bool(public)
+
 BOT_LIBS = ("aiogram", "python-telegram-bot", "pytelegrambotapi", "telebot", "pyrogram")
 ENTRY_CANDIDATES = ("bot.py", "main.py", "app.py", "run.py", "__main__.py", "src/bot.py", "src/main.py")
 MODULE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")

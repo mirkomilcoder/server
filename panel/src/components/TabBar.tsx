@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { useT } from '@/i18n';
-import { PAGES, pageById, type PageId } from '@/pages/registry';
+import { pageById, pagesFor, type PageId } from '@/pages/registry';
+import { useGuardian } from '@/state/guardian';
 import { Modal } from './Modal';
 
 /* Phone navigation (≤720px): 4 main pages + "More" sheet with the rest. */
@@ -9,6 +10,7 @@ import { Modal } from './Modal';
 const PRIMARY: PageId[] = ['dashboard', 'monitoring', 'deploy', 'terminal'];
 
 export function TabBar({ page, go }: { page: PageId; go: (id: PageId) => void }) {
+  const visible = pagesFor(useGuardian().me?.role);
   const { t } = useT();
   const [more, setMore] = useState(false);
   const inMore = !PRIMARY.includes(page);
@@ -32,7 +34,7 @@ export function TabBar({ page, go }: { page: PageId; go: (id: PageId) => void })
       </nav>
       <Modal open={more} onClose={() => setMore(false)} title={t('nav.more')}>
         <div style={{ display: 'grid', gap: 6 }}>
-          {PAGES.filter((p) => !PRIMARY.includes(p.id)).map((p) => (
+          {visible.filter((p) => !PRIMARY.includes(p.id)).map((p) => (
             <button
               key={p.id}
               className={`nav-item${p.danger ? ' nav-item--danger' : ''}`}

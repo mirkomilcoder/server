@@ -310,6 +310,7 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
             <input className="input input--plain" type="number" min={0} max={65535} value={port} onChange={(e) => setPort(Number(e.target.value) || 0)} /></label>
         </div>
       </Card>
+      <SiteCard a={a} onSaved={onSaved} />
       <AutoDeployCard a={a} onSaved={onSaved} />
       <DeployKeyCard name={a.name} />
       <Card className="danger-zone" title={t('app.delete')}>
@@ -319,6 +320,51 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
         </button>
       </Card>
     </>
+  );
+}
+
+/**
+ * Publish as a site (<app>.<domain>)? Web frameworks always are; bots (aiogram…) only
+ * when switched on, e.g. for a webhook. Applying redeploys the current image (no rebuild).
+ */
+function SiteCard({ a, onSaved }: { a: AppDetail; onSaved: () => void }) {
+  const { t } = useT();
+  const toast = useToast();
+  const required = a.site_mode === 'required';
+  const kind = a.current?.type ?? a.type;
+  const live = !!a.current?.web;
+  const [busy, setBusy] = useState(false);
+  const apply = async (v: boolean) => {
+    setBusy(true);
+    try {
+      await apps.setPublic(a.name, v);
+      if (a.current?.deploy_id && v !== live) {
+        await apps.rollback(a.name, a.current.deploy_id);
+        toast({ kind: 'success', title: v ? t('site.publishing') : t('site.unpublishing') });
+      } else {
+        toast({ kind: 'success', title: t('site.saved') });
+      }
+      onSaved();
+    } catch (e) {
+      toast({ kind: 'error', title: t('action.failed'), details: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title={t('site.title')} tools={
+      <label className="switch" title={required ? t('site.requiredShort') : undefined}>
+        <input type="checkbox" role="switch" checked={required || live} disabled={required || busy}
+          onChange={(e) => apply(e.target.checked)} aria-label={t('site.title')} />
+        <span className="switch__track" aria-hidden />
+      </label>
+    }>
+      <p className="muted">
+        {required ? t('site.required', { type: kind ? t(`type.${kind}` as TranslationKey) : '' })
+          : kind === 'bot' ? t('site.bot') : t('site.optional')}
+      </p>
+      {!required && <p className="card__meta">{t('site.portHint')}</p>}
+    </Card>
   );
 }
 

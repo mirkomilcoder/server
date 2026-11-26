@@ -114,3 +114,12 @@ def test_connection_urls(tmp_path, monkeypatch):
     assert dbs.url("shop-db") == "postgresql://app:s3cr-et_X@mk-db-shop-db:5432/shop_db"
     # explicit default user (empty user makes redis-cli 7 fail with WRONGPASS)
     assert dbs.url("cache") == "redis://default:s3cr-et_X@mk-db-cache:6379/0"
+
+
+def test_clone_errors_explain_what_to_do():
+    from mirkomil.paas.engine import clone_error
+    msg = clone_error("fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+                      "https://github.com/mirkomilcoder/Kino-bot", "main")
+    assert "yopiq" in msg and "git@github.com:mirkomilcoder/Kino-bot.git" in msg
+    assert "branch" in clone_error("warning: Remote branch dev not found in upstream origin", "https://github.com/a/b", "dev")
+    assert "Deploy keys" in clone_error("git@github.com: Permission denied (publickey).", "git@github.com:a/b.git", "main")

@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .detect import WEB_TYPES, DetectError, detect
+from .detect import DetectError, detect, is_public
 
 APPS = Path(os.environ.get("MK_APPS_DIR", "/var/lib/mirkomil/apps"))
 PROXY = Path(os.environ.get("MK_PROXY_DIR", "/var/lib/mirkomil/proxy"))
@@ -81,6 +81,8 @@ def validate_spec(s: dict[str, Any]) -> dict[str, Any]:
         "deploy_id": str(s.get("deploy_id", "")),
         "by": re.sub(r"[^a-z0-9_.-]", "", str(s.get("by", "?")))[:32] or "?",
         "image": s.get("image") or None,  # rollback: reuse an existing image
+        # publish as a site: None = default for the type (see detect.is_public)
+        "public": None if s.get("public") is None else bool(s.get("public")),
     }
     if not APP_RE.match(out["app"]):
         raise DeployError("ilova nomi: 3–32 belgi, kichik harf/raqam/chiziqcha, harf bilan boshlansin")
@@ -254,6 +256,23 @@ class Job:
     def finish(self, state: str, **extra: Any) -> None:
         self.status.update(state=state, finished=int(time.time()), **extra)
         self.save()
+
+
+def clone_error(out: str, repo: str, branch: str) -> str:
+    """Turn git's clone failure into advice the user can act on."""
+    # GitHub answers 401 for both missing and private repos, so we can't tell them apart
+    if "could not read Username" in out or "Repository not found" in out or "terminal prompts disabled" in out:
+        ssh =SSH_HOST_RE.match(repo) is None and re.sub(r"^https://([^/]+)/(.+?)(\.git)?$", r"git@\1:\2.git", repo)
+        return ("repo topilmadi yoki yopiq (private). Manzilni tekshiring (katta-kichik harf, '-' va '_' farqi muhim)."
+                + (f" Yopiq bo'lsa: manzilni {ssh} ga o'zgartiring va loyihadagi «Deploy kaliti»ni GitHub → Settings → "
+                   "Deploy keys'ga qo'shing." if ssh else ""))
+    if "Permission denied (publickey)" in out:
+        return "GitHub deploy kalitini qabul qilmadi: loyihadagi «Deploy kaliti»ni repo → Settings → Deploy keys'ga qo'shing."
+    if "Remote branch" in out and "not found" in out:
+        return f"'{branch}' branch'i repoda yo'q — sozlamalarda to'g'ri branch nomini kiriting (masalan main yoki master)."
+    if "Could not resolve host" in out or "Failed to connect" in out:
+        return "GitHub'ga ulanib bo'lmadi — server internetini tekshiring."
+    return "kodni yuklab bo'lmadi (git clone) — logni ko'ring"
 
 
 def sh(job: Job | None, argv: list[str], timeout: int = 600, env: dict[str, str] | None = None, check: bool = True) -> str:
@@ -438,14 +457,18 @@ def deploy(spec_path: Path) -> int:
         if image:
             job.step("rollback", f"Oldingi versiyaga qaytish: {image}")
             prev = json.loads((adir / "deploys" / image.split(":")[1] / "status.json").read_text())
-            det_type, web, port = prev.get("type", "dockerfile"), prev.get("web", True), int(prev.get("port") or 8000)
+            det_type, port = prev.get("type", "dockerfile"), int(prev.get("port") or 8000)
+            web = is_public(det_type, spec["public"])
             commit = prev.get("commit", "")
         else:
             job.step("clone", f"Kod yuklanmoqda: {spec['repo']} ({spec['branch']})")
             src = adir / "src"
             shutil.rmtree(src, ignore_errors=True)
-            sh(job, ["git", *GIT_SAFE, "clone", "--depth", "1", "--single-branch", "--branch", spec["branch"],
-                     "--no-recurse-submodules", "--", spec["repo"], str(src)], timeout=600, env=git_env(app, spec["repo"]))
+            out = sh(job, ["git", *GIT_SAFE, "clone", "--depth", "1", "--single-branch", "--branch", spec["branch"],
+                           "--no-recurse-submodules", "--", spec["repo"], str(src)], timeout=600,
+                     env=git_env(app, spec["repo"]), check=False)
+            if not (src / ".git").is_dir():
+                raise DeployError(clone_error(out, spec["repo"], spec["branch"]))
             os.chmod(src, 0o700)
             commit = quiet(["git", "-C", str(src), "log", "-1", "--format=%h %s"]).stdout.strip()[:200]
             job.status["commit_sha"] = quiet(["git", "-C", str(src), "rev-parse", "HEAD"]).stdout.strip()[:40]
@@ -456,8 +479,10 @@ def deploy(spec_path: Path) -> int:
                 d = detect(src, spec["type"])
             except DetectError as e:
                 raise DeployError(str(e))
-            det_type, web = d.type, d.type in WEB_TYPES
+            det_type, web = d.type, is_public(d.type, spec["public"])
             job.log(f"tur: {d.type}" + (f" ({d.note})" if d.note else ""))
+            job.log("sayt: " + (f"ha — {app}.{spec['domain']} (PORT muhit o'zgaruvchisidagi portda tinglashi kerak)"
+                                if web else "yo'q — ichki ishlaydi (bot / fon jarayoni), tashqaridan ochilmaydi"))
             if not (src / ".dockerignore").exists():
                 shutil.copy(TEMPLATES / "dockerignore", src / ".dockerignore")
             dockerfile = src / "Dockerfile"
@@ -496,13 +521,15 @@ def deploy(spec_path: Path) -> int:
         job.step("switch", "Trafik yangi versiyaga o'tkazilmoqda")
         if web and spec["domain"]:
             set_route(app, [f"{app}.{spec['domain']}"], f"{name}:{port}")
+        elif app in load_routes():
+            set_route(app, None, None)  # no longer a site: unpublish
         for old in app_containers(app):
             if old != name:
                 quiet(["docker", "rm", "-f", old])
         write_shared(adir / "current.json", json.dumps({"deploy_id": did, "container": name, "image": image,
                                                         "port": port, "web": web, "type": det_type}))
         prune_images(app)
-        if web and spec["domain"]:
+        if spec["domain"]:
             from ..helper import sync_tunnel_quietly
             tun = sync_tunnel_quietly()
             if tun != "off":

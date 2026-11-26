@@ -1,7 +1,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { SettingsProvider, useSettings } from '@/state/settings';
-import { SystemProvider } from '@/state/system';
+import { SystemProvider, useSystem } from '@/state/system';
+import { syncAdminMemory } from '@/api/superuser';
 import { MetricsProvider } from '@/state/metrics';
 import { GuardianProvider, useBrand } from '@/state/guardian';
 import { ToastProvider, useToast } from '@/state/toasts';
@@ -22,6 +23,11 @@ function Root() {
   useEffect(() => {
     document.title = brand;
   }, [brand]);
+  // Default: admin mode asks for the Linux password every time; "remember" re-enables it at login.
+  const sysAdmin = useSystem().admin;
+  useEffect(() => {
+    if (sysAdmin !== null) syncAdminMemory(settings.rememberAdmin, sysAdmin);
+  }, [settings.rememberAdmin, sysAdmin]);
   useApplyTheme(settings);
 
   // Ctrl+K / Cmd+K opens the command palette from anywhere

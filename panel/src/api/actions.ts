@@ -36,6 +36,8 @@ export interface ActionDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
   target?: (params: z.output<S>) => string;
   /** Extra environment ("NAME=value"), fixed per action. */
   environ?: string[];
+  /** Run in a pseudo-terminal (interactive prompts, answered through RunOptions.onOutput). */
+  pty?: boolean;
   /**
    * May run as root when the caller asks (file manager "admin mode"); needs
    * Cockpit administrative access and is then written to the activity log.
@@ -251,6 +253,18 @@ export const actions = {
   'files.unzip': define({
     schema: z.object({ archive: absPath, dir: absPath }).strict(), elevatable: true, target: (p) => p.archive,
     argv: (p) => ['python3', '-I', '-m', 'zipfile', '-e', p.archive, p.dir],
+  }),
+
+  // ---------------------------------------------------------------- my account
+
+  /**
+   * Change the logged-in user's own password: plain `passwd` in a pty, so PAM checks the
+   * current password and the password policy. The passwords are typed into the pty by
+   * account.ts and never appear in argv, logs or storage.
+   */
+  'account.passwd': define({
+    schema: none, pty: true, environ: ['LC_ALL=C'], audit: true, target: () => 'own password',
+    argv: () => ['passwd'],
   }),
 
   /** Create ~/.config/mirkomil-panel so settings.json can be saved. */

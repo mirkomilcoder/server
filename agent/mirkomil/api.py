@@ -194,6 +194,8 @@ def build_api(state: "GuardianState") -> Api:  # noqa: F821 (forward ref, see gu
 
     from .paas.api_apps import register as register_apps
     register_apps(api, state)
+    from .api_users import register as register_users
+    register_users(api, state)
 
     @api.route("GET", "/v1/rules")
     async def rules_get(_p: Peer, _q: dict[str, str], _b: Any) -> Any:

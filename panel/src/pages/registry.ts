@@ -18,6 +18,7 @@ import {
   Server,
   Settings,
   Shield,
+  UserCog,
   SquareTerminal,
   type LucideIcon,
 } from 'lucide-react';
@@ -34,7 +35,7 @@ import type { TranslationKey } from '@/i18n';
 export const PAGE_IDS = [
   'dashboard', 'services', 'bots', 'updates', 'activity', 'power',
   'deploy', 'apps', 'files',
-  'monitoring', 'docker', 'domains', 'backup', 'databases', 'security', 'network',
+  'monitoring', 'docker', 'domains', 'backup', 'databases', 'security', 'network', 'users',
   'terminal', 'logs', 'settings',
 ] as const;
 export type PageId = (typeof PAGE_IDS)[number];
@@ -57,6 +58,17 @@ export interface PageDef {
   live?: boolean;
   /** Milestone that delivers the page (placeholder until then). */
   milestone?: string;
+  /** Lowest role that sees the page (the server enforces the real rights). */
+  minRole: Role;
+}
+
+export type Role = 'viewer' | 'developer' | 'admin';
+const RANK: Record<string, number> = { none: 0, viewer: 1, developer: 2, admin: 3 };
+
+/** Pages a role may see. Unknown role (Guardian not reachable yet) → all pages. */
+export function pagesFor(role: string | undefined): PageDef[] {
+  if (!role) return PAGES;
+  return PAGES.filter((p) => RANK[role] >= RANK[p.minRole]);
 }
 
 // Pages not built yet render a placeholder naming the milestone that delivers them.
@@ -64,29 +76,30 @@ const soon = (milestone: string) =>
   lazy(() => import('./Placeholder').then((m) => ({ default: m.placeholderFor(milestone) })));
 
 export const PAGES: PageDef[] = [
-  { id: 'dashboard', icon: House, label: 'nav.home', group: 'main', component: lazy(() => import('./Dashboard')) },
-  { id: 'deploy', icon: Rocket, label: 'nav.deploy', group: 'main', component: lazy(() => import('./DeployPage')) },
-  { id: 'apps', icon: LayoutGrid, label: 'nav.apps', group: 'main', component: soon('M5b'), milestone: 'M5b' },
-  { id: 'files', icon: Folder, label: 'nav.files', group: 'main', component: lazy(() => import('./FilesPage')) },
+  { id: 'dashboard', icon: House, label: 'nav.home', group: 'main', component: lazy(() => import('./Dashboard')), minRole: 'viewer' },
+  { id: 'deploy', icon: Rocket, label: 'nav.deploy', group: 'main', component: lazy(() => import('./DeployPage')), minRole: 'viewer' },
+  { id: 'apps', icon: LayoutGrid, label: 'nav.apps', group: 'main', component: soon('M5b'), milestone: 'M5b', minRole: 'viewer' },
+  { id: 'files', icon: Folder, label: 'nav.files', group: 'main', component: lazy(() => import('./FilesPage')), minRole: 'developer' },
 
-  { id: 'services', icon: Server, label: 'nav.services', group: 'server', component: lazy(() => import('./ServicesPage')) },
-  { id: 'bots', icon: Bot, label: 'nav.bots', group: 'server', component: lazy(() => import('./BotsPage')) },
-  { id: 'updates', icon: Download, label: 'nav.updates', group: 'server', component: lazy(() => import('./UpdatesPage')) },
-  { id: 'activity', icon: Activity, label: 'nav.activity', group: 'server', component: lazy(() => import('./ActivityPage')) },
-  { id: 'power', icon: Power, label: 'nav.power', group: 'server', danger: true, component: lazy(() => import('./PowerPage')) },
+  { id: 'services', icon: Server, label: 'nav.services', group: 'server', component: lazy(() => import('./ServicesPage')), minRole: 'viewer' },
+  { id: 'bots', icon: Bot, label: 'nav.bots', group: 'server', component: lazy(() => import('./BotsPage')), minRole: 'developer' },
+  { id: 'updates', icon: Download, label: 'nav.updates', group: 'server', component: lazy(() => import('./UpdatesPage')), minRole: 'admin' },
+  { id: 'activity', icon: Activity, label: 'nav.activity', group: 'server', component: lazy(() => import('./ActivityPage')), minRole: 'viewer' },
+  { id: 'power', icon: Power, label: 'nav.power', group: 'server', danger: true, component: lazy(() => import('./PowerPage')), minRole: 'admin' },
 
-  { id: 'monitoring', icon: LineChart, label: 'nav.monitoring', group: 'manage', live: true, component: lazy(() => import('./GuardianPage')) },
-  { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: lazy(() => import('./DockerPage')) },
-  { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: lazy(() => import('./DomainsPage')) },
-  { id: 'backup', icon: DatabaseBackup, label: 'nav.backup', group: 'manage', component: soon('M8'), milestone: 'M8' },
-  { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: lazy(() => import('./DatabasesPage')) },
-  { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: lazy(() => import('./SecurityPage')) },
-  { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: lazy(() => import('./NetworkPage')) },
+  { id: 'monitoring', icon: LineChart, label: 'nav.monitoring', group: 'manage', live: true, component: lazy(() => import('./GuardianPage')), minRole: 'viewer' },
+  { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: lazy(() => import('./DockerPage')), minRole: 'admin' },
+  { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: lazy(() => import('./DomainsPage')), minRole: 'admin' },
+  { id: 'backup', icon: DatabaseBackup, label: 'nav.backup', group: 'manage', component: soon('M8'), milestone: 'M8', minRole: 'admin' },
+  { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: lazy(() => import('./DatabasesPage')), minRole: 'developer' },
+  { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: lazy(() => import('./SecurityPage')), minRole: 'admin' },
+  { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: lazy(() => import('./NetworkPage')), minRole: 'viewer' },
+  { id: 'users', icon: UserCog, label: 'nav.users', group: 'manage', component: lazy(() => import('./UsersPage')), minRole: 'admin' },
 
-  { id: 'terminal', icon: SquareTerminal, label: 'nav.terminal', group: 'dev', component: lazy(() => import('./TerminalPage')) },
-  { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: lazy(() => import('./LogsPage')) },
+  { id: 'terminal', icon: SquareTerminal, label: 'nav.terminal', group: 'dev', component: lazy(() => import('./TerminalPage')), minRole: 'developer' },
+  { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: lazy(() => import('./LogsPage')), minRole: 'developer' },
 
-  { id: 'settings', icon: Settings, label: 'nav.settings', group: 'bottom', component: lazy(() => import('./SettingsPage')) },
+  { id: 'settings', icon: Settings, label: 'nav.settings', group: 'bottom', component: lazy(() => import('./SettingsPage')), minRole: 'viewer' },
 ];
 
 export const pageById = (id: PageId): PageDef => PAGES.find((p) => p.id === id) ?? PAGES[0];

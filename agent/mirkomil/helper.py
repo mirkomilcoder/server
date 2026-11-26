@@ -404,7 +404,62 @@ def sync_tunnel_quietly() -> str:
         return f"xato: {e}"
 
 
+# ---------------------------------------------------------------- panel users
+
+def _users_call(fn: Callable[[], Any]) -> Any:
+    from .users import UserError
+    try:
+        return fn()
+    except UserError as e:
+        raise VerbError(str(e))
+
+
+def v_user_list(_a: dict[str, Any]) -> Any:
+    from . import users
+    return users.list_users()
+
+
+def v_user_create(a: dict[str, Any]) -> Any:
+    from . import users
+    return _users_call(lambda: users.create(str(a.get("user", "")), str(a.get("role", "")), str(a.get("name", ""))))
+
+
+def v_user_role(a: dict[str, Any]) -> Any:
+    from . import users
+    return _users_call(lambda: users.set_role(str(a.get("user", "")), str(a.get("role", ""))))
+
+
+def v_user_lock(a: dict[str, Any]) -> Any:
+    from . import users
+    return _users_call(lambda: users.set_locked(str(a.get("user", "")), bool(a.get("locked"))))
+
+
+def v_user_password(a: dict[str, Any]) -> Any:
+    from . import users
+    return {"password": _users_call(lambda: users.reset_password(str(a.get("user", ""))))}
+
+
+def v_user_groups(a: dict[str, Any]) -> Any:
+    from . import users
+    groups = a.get("groups")
+    if not isinstance(groups, list):
+        raise VerbError("groups: list expected")
+    return _users_call(lambda: users.set_groups(str(a.get("user", "")), [str(g) for g in groups]))
+
+
+def v_user_delete(a: dict[str, Any]) -> Any:
+    from . import users
+    return _users_call(lambda: users.delete(str(a.get("user", ""))))
+
+
 VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "user.list": v_user_list,
+    "user.create": v_user_create,
+    "user.role": v_user_role,
+    "user.lock": v_user_lock,
+    "user.password": v_user_password,
+    "user.delete": v_user_delete,
+    "user.groups": v_user_groups,
     "tunnel.setup": v_tunnel_setup,
     "tunnel.sync": v_tunnel_sync,
     "tunnel.status": v_tunnel_status,

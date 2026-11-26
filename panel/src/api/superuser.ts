@@ -24,7 +24,10 @@ export interface Prompt {
   error: string;
 }
 
-/** Remember the choice for the next login, exactly like the Cockpit shell does. */
+/**
+ * Cockpit's login page reads this preference: "any" starts admin access right at
+ * login (reusing the login password), "none" means the password is asked every time.
+ */
 function rememberChoice(value: 'any' | 'none') {
   try {
     const key = window.localStorage.getItem('superuser-key');
@@ -39,7 +42,7 @@ function rememberChoice(value: 'any' | 'none') {
  * reply with answer(). Resolves when access is granted; rejects on failure
  * or with message "cancelled" after cancel().
  */
-export async function startAdmin(onPrompt: (p: Prompt) => void): Promise<void> {
+export async function startAdmin(onPrompt: (p: Prompt) => void, remember = false): Promise<void> {
   const p = su();
   await p.wait();
   const bridges = (p.Bridges as string[] | undefined) ?? [];
@@ -49,7 +52,7 @@ export async function startAdmin(onPrompt: (p: Prompt) => void): Promise<void> {
   p.addEventListener('Prompt', handler as (...a: never[]) => void);
   try {
     await p.call('Start', [bridges[0]]);
-    rememberChoice('any');
+    rememberChoice(remember ? 'any' : 'none');
   } finally {
     p.removeEventListener('Prompt', handler as (...a: never[]) => void);
   }
@@ -63,6 +66,11 @@ export function answer(value: string): void {
 export async function stopAdmin(): Promise<void> {
   await su().call('Stop', []);
   rememberChoice('none');
+}
+
+/** Applies the "remember admin mode" setting to Cockpit's login preference. */
+export function syncAdminMemory(remember: boolean, isAdminNow: boolean): void {
+  rememberChoice(remember && isAdminNow ? 'any' : 'none');
 }
 
 /** Aborts a start that is waiting for the password (preference unchanged). */

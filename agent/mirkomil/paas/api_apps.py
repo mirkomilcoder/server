@@ -5,7 +5,9 @@ everything that touches Docker or root-owned files is a helper verb.
 Deploy status/logs are read straight from the group-readable job files.
 
 Roles: viewer = read · developer = create / deploy / control / env · admin = delete + raw Docker.
-(Per-app assignment for developers arrives with user management, M7.)
+Per-app access: admins see every app; developers and viewers only the apps they
+created or were assigned on the Users page (table app_members). Others get 404 —
+an app's existence isn't revealed.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from typing import Any
 from .. import helper
 from ..api import HttpError
 from ..auth import Peer
+from .detect import site_mode
 from .engine import APP_RE, APPS, DEPLOY_RE, ENV_KEY_RE, REPO_RE, BRANCH_RE
 
 SCHEMA = """
@@ -74,6 +77,9 @@ def _validate_settings(b: dict[str, Any], partial: bool = False) -> dict[str, An
             out[key] = v
     if "autodeploy" in b:
         out["autodeploy"] = 1 if b.get("autodeploy") else 0
+    if "public" in b:
+        # None = default for the type; web frameworks are always public (detect.is_public)
+        out["public"] = None if b.get("public") is None else (1 if b.get("public") else 0)
     return out
 
 
@@ -105,7 +111,7 @@ def autodeploy_tick(state: Any) -> list[str]:
         if last_any and last_any.get("state") == "failed" and last_any.get("commit_sha") == sha:
             continue
         try:
-            res = helper.call("app.deploy", {**{k: a[k] for k in ("repo", "branch", "type", "port", "mem_mb", "cpus")},
+            res = helper.call("app.deploy", {**{k: a.get(k) for k in ("repo", "branch", "type", "port", "mem_mb", "cpus", "public")},
                                              "app": a["name"], "domain": state.cfg.domain, "by": "auto"}, timeout=60)
         except Exception:
             continue
@@ -138,6 +144,8 @@ def register(api: Any, state: Any) -> None:
     cols = {r[1] for r in db.conn.execute("PRAGMA table_info(apps)").fetchall()}
     if "autodeploy" not in cols:
         db.conn.execute("ALTER TABLE apps ADD COLUMN autodeploy INTEGER NOT NULL DEFAULT 0")
+    if "public" not in cols:  # NULL = default for the app type
+        db.conn.execute("ALTER TABLE apps ADD COLUMN public INTEGER")
     loop_call = lambda fn: asyncio.get_running_loop().run_in_executor(None, fn)  # noqa: E731
 
     async def h(verb: str, args: dict[str, Any] | None = None, timeout: float = 120) -> Any:
@@ -148,23 +156,30 @@ def register(api: Any, state: Any) -> None:
         except OSError:
             raise HttpError(503, "root helper ishlamayapti")
 
-    def get_app(name: str) -> dict[str, Any]:
+    db.conn.execute("CREATE TABLE IF NOT EXISTS app_members (app TEXT NOT NULL, user TEXT NOT NULL, PRIMARY KEY (app, user))")
+
+    def can_see(p: Peer, app: dict[str, Any]) -> bool:
+        if p.role == "admin" or app.get("created_by") == p.user:
+            return True
+        return db.conn.execute("SELECT 1 FROM app_members WHERE app = ? AND user = ?", (app["name"], p.user)).fetchone() is not None
+
+    def get_app(name: str, p: Peer | None = None) -> dict[str, Any]:
         if not APP_RE.match(name or ""):
             raise HttpError(400, "ilova nomi noto'g'ri")
         row = db.conn.execute("SELECT * FROM apps WHERE name = ?", (name,)).fetchone()
-        if not row:
+        if not row or (p is not None and not can_see(p, dict(row))):
             raise HttpError(404, "ilova topilmadi")
         return dict(row)
 
     async def start_deploy(app: dict[str, Any], by: str, image: str | None = None) -> Any:
-        res = await h("app.deploy", {**{k: app[k] for k in ("repo", "branch", "type", "port", "mem_mb", "cpus")},
+        res = await h("app.deploy", {**{k: app.get(k) for k in ("repo", "branch", "type", "port", "mem_mb", "cpus", "public")},
                                      "app": app["name"], "domain": state.cfg.domain, "by": by, "image": image})
         title = f"Deploy boshlandi: {app['name']}" if not image else f"Rollback boshlandi: {app['name']}"
         db.add_event("action", "info", title, res.get("deploy_id", ""), check_id=f"app:{app['name']}", actor=by)
         return res
 
     @api.route("GET", "/v1/apps")
-    async def list_apps(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+    async def list_apps(p: Peer, _q: dict[str, str], _b: Any) -> Any:
         stats: dict[str, Any] = {}
         try:
             stats = await loop_call(lambda: helper.call("app.stats", {}, timeout=40))
@@ -173,8 +188,11 @@ def register(api: Any, state: Any) -> None:
         out = []
         for row in db.conn.execute("SELECT * FROM apps ORDER BY name").fetchall():
             a = dict(row)
+            if not can_see(p, a):
+                continue
             cur = _read_json(APPS / a["name"] / "current.json") or {}
             deps = deploys_of(a["name"], 1)
+            a["site_mode"] = site_mode(cur.get("type") or a.get("type"))
             a.update(current=cur, last_deploy=deps[0] if deps else None,
                      url=f"http://{a['name']}.{state.cfg.domain}" if cur.get("web") else None,
                      stats=stats.get(cur.get("container", ""), None))
@@ -193,36 +211,38 @@ def register(api: Any, state: Any) -> None:
         s = _validate_settings(b)
         env = _validate_env(b.get("env"))
         await h("app.env.set", {"app": name, "env": env, "keep": []})
-        db.conn.execute("INSERT INTO apps (name, repo, branch, type, port, mem_mb, cpus, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                        (name, s["repo"], s["branch"], s["type"], s["port"], s["mem_mb"], s["cpus"], p.user, int(time.time())))
+        public = _validate_settings({"public": b.get("public")}, partial=True)["public"] if "public" in b else None
+        db.conn.execute("INSERT INTO apps (name, repo, branch, type, port, mem_mb, cpus, public, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        (name, s["repo"], s["branch"], s["type"], s["port"], s["mem_mb"], s["cpus"], public, p.user, int(time.time())))
         db.add_event("action", "info", f"Yangi ilova: {name}", s["repo"], check_id=f"app:{name}", actor=p.user)
-        return await start_deploy(get_app(name), p.user)
+        return await start_deploy(get_app(name, p), p.user)
 
     @api.route("GET", "/v1/apps/{name}")
-    async def app_detail(_p: Peer, q: dict[str, str], _b: Any) -> Any:
-        a = get_app(q["name"])
+    async def app_detail(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        a = get_app(q["name"], p)
         keys = await h("app.env.keys", {"app": a["name"]})
         cur = _read_json(APPS / a["name"] / "current.json") or {}
         return {**a, "current": cur, "deploys": deploys_of(a["name"]), "env": keys,
+                "site_mode": site_mode(cur.get("type") or a.get("type")),
                 "url": f"http://{a['name']}.{state.cfg.domain}" if cur.get("web") else None}
 
     @api.route("POST", "/v1/apps/{name}/settings", role="developer")
     async def app_settings(p: Peer, q: dict[str, str], b: Any) -> Any:
-        a = get_app(q["name"])
+        a = get_app(q["name"], p)
         s = _validate_settings(b if isinstance(b, dict) else {}, partial=True)
         if s:
             sets = ", ".join(f"{k} = ?" for k in s)
             db.conn.execute(f"UPDATE apps SET {sets} WHERE name = ?", (*s.values(), a["name"]))  # keys are fixed names
             db.add_event("action", "info", f"Ilova sozlamalari o'zgardi: {a['name']}", ", ".join(s), check_id=f"app:{a['name']}", actor=p.user)
-        return get_app(a["name"])
+        return get_app(a["name"], p)
 
     @api.route("POST", "/v1/apps/{name}/deploy", role="developer")
     async def redeploy(p: Peer, q: dict[str, str], _b: Any) -> Any:
-        return await start_deploy(get_app(q["name"]), p.user)
+        return await start_deploy(get_app(q["name"], p), p.user)
 
     @api.route("POST", "/v1/apps/{name}/rollback", role="developer")
     async def rollback(p: Peer, q: dict[str, str], b: Any) -> Any:
-        a = get_app(q["name"])
+        a = get_app(q["name"], p)
         did = str((b or {}).get("deploy_id", ""))
         st = _read_json(APPS / a["name"] / "deploys" / did / "status.json") if DEPLOY_RE.match(did) else None
         if not st or st.get("state") != "success" or not st.get("image"):
@@ -230,8 +250,8 @@ def register(api: Any, state: Any) -> None:
         return await start_deploy(a, p.user, image=st["image"])
 
     @api.route("GET", "/v1/apps/{name}/deploys/{id}")
-    async def deploy_log(_p: Peer, q: dict[str, str], _b: Any) -> Any:
-        a = get_app(q["name"])
+    async def deploy_log(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        a = get_app(q["name"], p)
         if not DEPLOY_RE.match(q["id"]):
             raise HttpError(400, "deploy id noto'g'ri")
         d = APPS / a["name"] / "deploys" / q["id"]
@@ -249,20 +269,20 @@ def register(api: Any, state: Any) -> None:
 
     @api.route("POST", "/v1/apps/{name}/control", role="developer")
     async def control(p: Peer, q: dict[str, str], b: Any) -> Any:
-        a = get_app(q["name"])
+        a = get_app(q["name"], p)
         op = str((b or {}).get("op", ""))
         res = await h("app.control", {"app": a["name"], "op": op})
         db.add_event("action", "info", f"Ilova {op}: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
         return {"result": res}
 
     @api.route("GET", "/v1/apps/{name}/logs")
-    async def logs(_p: Peer, q: dict[str, str], _b: Any) -> Any:
-        a = get_app(q["name"])
+    async def logs(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        a = get_app(q["name"], p)
         return {"text": await h("app.logs", {"app": a["name"], "lines": int(q.get("lines", "300") or 300)})}
 
     @api.route("POST", "/v1/apps/{name}/env", role="developer")
     async def set_env(p: Peer, q: dict[str, str], b: Any) -> Any:
-        a = get_app(q["name"])
+        a = get_app(q["name"], p)
         b = b if isinstance(b, dict) else {}
         keep = [k for k in (b.get("keep") or []) if isinstance(k, str) and ENV_KEY_RE.match(k)]
         keys = await h("app.env.set", {"app": a["name"], "env": _validate_env(b.get("env")), "keep": keep})
@@ -272,18 +292,19 @@ def register(api: Any, state: Any) -> None:
 
     @api.route("POST", "/v1/apps/{name}/delete", role="admin")
     async def delete(p: Peer, q: dict[str, str], b: Any) -> Any:
-        a = get_app(q["name"])
+        a = get_app(q["name"], p)
         if str((b or {}).get("confirm", "")) != a["name"]:
             raise HttpError(400, "tasdiqlash uchun ilova nomini yozing")
         await h("app.delete", {"app": a["name"]}, timeout=300)
         db.conn.execute("DELETE FROM apps WHERE name = ?", (a["name"],))
+        db.conn.execute("DELETE FROM app_members WHERE app = ?", (a["name"],))
         db.add_event("action", "warn", f"Ilova o'chirildi: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
         return {"deleted": a["name"]}
 
     @api.route("POST", "/v1/apps/{name}/deploykey", role="developer")
     async def deploykey(p: Peer, q: dict[str, str], _b: Any) -> Any:
         """Create (once) and return the PUBLIC deploy key; the private key never leaves the server."""
-        a = get_app(q["name"])
+        a = get_app(q["name"], p)
         res = await h("app.deploykey", {"app": a["name"]})
         db.add_event("action", "info", f"Deploy kaliti: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
         return res
@@ -291,7 +312,7 @@ def register(api: Any, state: Any) -> None:
     # ---- managed databases ----
 
     @api.route("GET", "/v1/databases")
-    async def dbs_list(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+    async def dbs_list(p: Peer, _q: dict[str, str], _b: Any) -> Any:
         return {"databases": await h("db.list")}
 
     @api.route("POST", "/v1/databases", role="developer")
@@ -307,7 +328,7 @@ def register(api: Any, state: Any) -> None:
     @api.route("POST", "/v1/databases/{name}/attach", role="developer")
     async def dbs_attach(p: Peer, q: dict[str, str], b: Any) -> Any:
         b = b if isinstance(b, dict) else {}
-        app = get_app(str(b.get("app", "")))["name"]
+        app = get_app(str(b.get("app", "")), p)["name"]
         res = await h("db.attach", {"name": q["name"], "app": app, "var": b.get("var") or None})
         db.add_event("action", "info", f"Baza ulandi: {q['name']} → {app} ({res['var']})", check_id=f"app:{app}", actor=p.user)
         return res
@@ -324,7 +345,7 @@ def register(api: Any, state: Any) -> None:
     # ---- raw Docker (admin) ----
 
     @api.route("GET", "/v1/docker/containers", role="admin")
-    async def containers(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+    async def containers(p: Peer, _q: dict[str, str], _b: Any) -> Any:
         return {"containers": await h("docker.ps"), "stats": await h("app.stats", timeout=40)}
 
     @api.route("POST", "/v1/docker/container", role="admin")
@@ -335,7 +356,7 @@ def register(api: Any, state: Any) -> None:
         return {"result": res}
 
     @api.route("GET", "/v1/docker/logs", role="admin")
-    async def container_logs(_p: Peer, q: dict[str, str], _b: Any) -> Any:
+    async def container_logs(p: Peer, q: dict[str, str], _b: Any) -> Any:
         return {"text": await h("docker.logs", {"name": q.get("name", ""), "lines": int(q.get("lines", "300") or 300)})}
 
     @api.route("POST", "/v1/docker/prune", role="admin")
@@ -347,7 +368,7 @@ def register(api: Any, state: Any) -> None:
     # ---- public access: Cloudflare Tunnel + Access (admin) ----
 
     @api.route("GET", "/v1/tunnel", role="admin")
-    async def tunnel_status(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+    async def tunnel_status(p: Peer, _q: dict[str, str], _b: Any) -> Any:
         return await h("tunnel.status", timeout=40)
 
     @api.route("POST", "/v1/tunnel/setup", role="admin")

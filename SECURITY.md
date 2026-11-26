@@ -40,6 +40,18 @@ only the access it needs**, and that the web UI cannot become a remote shell.
   stored in `/var/lib/mirkomil/tunnel/private/api_token` (`root`, `0600`), never logged or returned.
   Use a token scoped to the listed permissions and the one zone. Only DNS records created by
   Mirkomil (comment `mirkomil`) are ever modified or deleted.
+* Panel users → each one is a normal Linux account with exactly one role group
+  (`mirkomil-admin` / `mirkomil-dev` / `mirkomil-viewer`); the panel never grants `sudo` or
+  root-equivalent groups (`docker`, `lxd`, `disk`, `shadow`) and can't change the server owner
+  (members of `sudo`) or the caller's own account. New users get a random one-time password, shown
+  once on the invite card and never stored or logged, and must set their own at first login.
+  Developers and viewers see only the apps they created or were assigned (enforced by Guardian;
+  others get 404). Own password changes run `passwd` in a pty as the user, so PAM verifies the
+  current password; the passwords are written only to that pty.
+* Admin mode → by default Cockpit asks for the Linux password every time admin mode is switched
+  on; "Admin rejimini eslab qolish" (opt-in) lets Cockpit re-enable it at login with the login password.
+* Apps as sites → web frameworks (Django, FastAPI, Flask, static) are always published; bots and
+  workers (e.g. aiogram) stay private unless explicitly published (e.g. for a webhook).
 * SSH brute force → key-only login (enabled only after key login is proven to work), fail2ban with
   increasing ban times.
 * Lock-out by the installer → SSH port allowed before ufw is enabled, `sshd -t` validated with

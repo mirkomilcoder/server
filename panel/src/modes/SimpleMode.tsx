@@ -8,6 +8,8 @@ import { useMetrics } from '@/state/metrics';
 import { useMotion } from '@/theme/motion';
 import { ModeSwitch } from '@/components/ModeSwitch';
 import { PageView } from '@/components/PageView';
+import { pagesFor } from '@/pages/registry';
+import { useGuardian } from '@/state/guardian';
 import { CountUp } from '@/widgets/CountUp';
 import type { PageId } from '@/pages/registry';
 import type { ModeProps } from './index';
@@ -25,12 +27,12 @@ interface TileDef {
 
 const TILES: TileDef[] = [
   { page: 'dashboard', icon: Server, title: 'tile.status', sub: 'tile.status.sub', tint: 'accent' },
-  { page: 'bots', icon: Bot, title: 'tile.bots', sub: 'common.soon', tint: 'success' },
-  { page: 'updates', icon: Download, title: 'tile.updates', sub: 'common.soon', tint: 'warning' },
+  { page: 'bots', icon: Bot, title: 'tile.bots', sub: 'tile.bots.sub', tint: 'success' },
+  { page: 'updates', icon: Download, title: 'tile.updates', sub: 'tile.updates.sub', tint: 'warning' },
   { page: 'logs', icon: FileText, title: 'tile.logs', sub: 'tile.logs.sub', tint: 'info' },
-  { page: 'docker', icon: Box, title: 'tile.docker', sub: 'common.soon', tint: 'violet' },
-  { page: 'network', icon: Globe, title: 'tile.network', sub: 'common.soon', tint: 'teal' },
-  { page: 'security', icon: ShieldCheck, title: 'tile.security', sub: 'common.soon', tint: 'success' },
+  { page: 'docker', icon: Box, title: 'tile.docker', sub: 'tile.docker.sub', tint: 'violet' },
+  { page: 'network', icon: Globe, title: 'tile.network', sub: 'tile.network.sub', tint: 'teal' },
+  { page: 'security', icon: ShieldCheck, title: 'tile.security', sub: 'tile.security.sub', tint: 'success' },
   { page: 'terminal', icon: Terminal, title: 'tile.terminal', sub: 'tile.terminal.sub', tint: 'muted' },
   { page: 'power', icon: Power, title: 'tile.power', sub: 'tile.power.sub', tint: 'danger', danger: true },
 ];
@@ -75,6 +77,7 @@ export default function SimpleMode({ page, go }: ModeProps) {
   const { brand } = useBrand();
   const home = page === 'dashboard';
 
+  const allowed = new Set(pagesFor(useGuardian().me?.role).map((p) => p.id));
   return (
     <div className="simple">
       <header className="simple__head">
@@ -91,7 +94,7 @@ export default function SimpleMode({ page, go }: ModeProps) {
         <>
           <Hero />
           <motion.div className="tiles" variants={m.stagger} initial="hidden" animate="show">
-            {TILES.map((tile) => (
+            {TILES.filter((tile) => allowed.has(tile.page)).map((tile) => (
               <motion.button
                 key={tile.title}
                 className={`tile${tile.danger ? ' tile--danger' : ''}`}

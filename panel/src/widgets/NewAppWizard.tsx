@@ -40,6 +40,8 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
   const [port, setPort] = useState(0);
   const [mem, setMem] = useState(512);
   const [cpus, setCpus] = useState(1);
+  const [site, setSite] = useState<'auto' | 'yes' | 'no'>('auto');
+  const siteRequired = type === 'django' || type === 'fastapi' || type === 'flask' || type === 'static';
   const [env, setEnv] = useState<{ k: string; v: string }[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -49,7 +51,7 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
   const envOk = useMemo(() => env.every((e) => !e.k || (ENV_KEY_RE.test(e.k) && e.k !== 'PORT' && !/[\r\n]/.test(e.v))), [env]);
 
   const reset = () => {
-    setRepo(''); setName(''); setNameTouched(false); setBranch('main'); setType(''); setPort(0); setMem(512); setCpus(1); setEnv([]);
+    setRepo(''); setName(''); setNameTouched(false); setBranch('main'); setType(''); setPort(0); setMem(512); setCpus(1); setEnv([]); setSite('auto');
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -58,7 +60,8 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
     setBusy(true);
     try {
       const envObj = Object.fromEntries(env.filter((x) => x.k).map((x) => [x.k, x.v]));
-      const r = await apps.create({ name: effName, repo: repo.trim(), branch: branch.trim() || 'main', type: type || null, port, mem_mb: mem, cpus, env: envObj });
+      const r = await apps.create({ name: effName, repo: repo.trim(), branch: branch.trim() || 'main', type: type || null, port, mem_mb: mem, cpus, env: envObj,
+        public: siteRequired || site === 'auto' ? null : site === 'yes' });
       reset();
       onCreated(effName, r.deploy_id);
     } catch (err) {
@@ -106,6 +109,21 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
             {TYPES.map((x) => <option key={x} value={x}>{t(`type.${x}` as TranslationKey)}</option>)}
           </select>
         </label>
+
+        <div className="field">
+          <span className="field__label">{t('site.title')}</span>
+          <div className="choices">
+            {(['auto', 'yes', 'no'] as const).map((v) => (
+              <button type="button" key={v} className="choice" disabled={siteRequired && v !== 'yes'}
+                aria-pressed={siteRequired ? v === 'yes' : site === v} onClick={() => setSite(v)}>
+                {t(`site.choice.${v}`)}
+              </button>
+            ))}
+          </div>
+          <span className="card__meta">
+            {siteRequired ? t('site.requiredShort') : type === 'bot' ? t('site.bot') : t('site.autoHint')}
+          </span>
+        </div>
 
         <details className="wizard__more">
           <summary>{t('wizard.advanced')}</summary>

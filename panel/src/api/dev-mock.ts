@@ -247,6 +247,19 @@ function http(): ReturnType<Cockpit['http']> {
     '/v1/tunnel': () => ({ configured: true, domain: 'mirkomil-host.uz', panel_host: 'panel.mirkomil-host.uz', team: 'mirkomil.cloudflareaccess.com',
       hosts: ['panel.mirkomil-host.uz', 'milano-kafe.mirkomil-host.uz', 'kino-bot.mirkomil-host.uz', 'mirkomil-host.uz'],
       emails: ['admin@example.com'], root_app: 'milano-kafe', status: 'healthy', connections: 4, service: 'active' }),
+    '/v1/users': () => ({ users: [
+      { user: 'home-server', uid: 1000, name: 'Mirkomil', role: 'admin', owner: true, managed: true, locked: false, must_change: false,
+        groups: ['adm'], email: null, invited_by: null, invited_at: null, apps: [] },
+      { user: 'ali', uid: 1001, name: 'Ali Valiyev', role: 'developer', owner: false, managed: true, locked: false, must_change: true,
+        groups: [], email: 'ali@example.com', invited_by: 'home-server', invited_at: now() - 3600, apps: ['milano-kafe'] },
+      { user: 'zara', uid: 1002, name: 'Zarina', role: 'viewer', owner: false, managed: true, locked: true, must_change: false,
+        groups: ['systemd-journal'], email: null, invited_by: 'home-server', invited_at: now() - 86400 * 3, apps: [] },
+    ] }),
+    '/v1/users/groups': () => ({ groups: [
+      { name: 'adm', about: "tizim loglarini o'qish (/var/log)" },
+      { name: 'systemd-journal', about: "jurnalni (journalctl) to'liq o'qish" },
+      { name: 'www-data', about: 'veb-server fayllari bilan ishlash' },
+    ] }),
     '/v1/identity': () => ({ brand: 'Mirkomil Host', domain: 'mirkomil-host.uz' }),
     '/v1/events': () => ({
       events: [
@@ -263,8 +276,12 @@ function http(): ReturnType<Cockpit['http']> {
       if (!r) throw { status: 404, reason: 'Not Found', message: 'not found' };
       return JSON.stringify(r(params ?? {}));
     },
-    post: async (_path, body) => {
-      const b = JSON.parse(String(body ?? '{}')) as { mode?: string; rule?: string; enabled?: boolean };
+    post: async (path, body) => {
+      const b = JSON.parse(String(body ?? '{}')) as { mode?: string; rule?: string; enabled?: boolean; user?: string; role?: string };
+      if (path === '/v1/users' || path.endsWith('/password')) {
+        return JSON.stringify({ user: b.user ?? path.split('/')[3], role: b.role ?? 'developer', password: 'k7mp-x3qa-9fhz-w2nd',
+          panel_url: 'https://panel.mirkomil-host.uz', email: 'ali@example.com', access: 'ok' });
+      }
       if (b.mode) rulesState.mode = b.mode;
       if (b.rule) rulesState.rules = rulesState.rules.map((r) => (r.id === b.rule ? { ...r, enabled: !!b.enabled } : r));
       return JSON.stringify(rulesState);

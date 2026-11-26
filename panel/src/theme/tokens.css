@@ -1,0 +1,127 @@
+/*
+ * Design tokens. Everything visual reads these variables, so the theme and
+ * accent can change at runtime (theme.ts sets data-theme / --accent on <html>).
+ */
+
+:root {
+  /* typography */
+  --font-ui: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* shape */
+  --r-card: 16px;
+  --r-tile: 22px;
+  --r-btn: 10px;
+  --r-pill: 99px;
+
+  /* layout */
+  --sidebar-w: 236px;
+  --sidebar-w-collapsed: 76px;
+  --page-pad-x: 32px;
+  --page-pad-y: 28px;
+  --gap: 16px;
+
+  /* motion — --speed is the user's speed slider (1 = normal) */
+  --speed: 1;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --t-fast: calc(160ms / var(--speed));
+  --t-med: calc(260ms / var(--speed));
+
+  /* accent (overridden at runtime) */
+  --accent: #22D3EE;
+  --on-accent: #04212A;
+
+  --violet: #A78BFA;
+  --info: #93C5FD;
+}
+
+/* ---------- Dark (default) ---------- */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #070B16;
+  --sidebar: #0A0F1E;
+  --surface: #0F1629;
+  --surface-2: #0A0F1E;
+  --surface-raised: #121B33;
+  --console-bg: #060A14;
+  --border: rgba(255, 255, 255, .07);
+  --border-strong: rgba(255, 255, 255, .12);
+
+  --text: #E6EAF2;
+  --text-muted: #A9B4C7;
+  --text-subtle: #8391A7;
+
+  --accent-text: var(--accent);
+
+  --success: #34D399;
+  --success-text: #6EE7B7;
+  --success-bg: rgba(52, 211, 153, .13);
+  --warning: #FBBF24;
+  --warning-text: #FCD34D;
+  --warning-bg: rgba(251, 191, 36, .12);
+  --danger: #F87171;
+  --danger-text: #FCA5A5;
+  --danger-bg: rgba(248, 113, 113, .13);
+  --info-text: #93C5FD;
+  --info-bg: rgba(147, 197, 253, .12);
+  --violet-text: #C4B5FD;
+  --violet-bg: rgba(167, 139, 250, .14);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, .02) inset;
+  --shadow-hover: 0 18px 40px -18px rgba(0, 0, 0, .75);
+  --shadow-pop: 0 24px 60px -12px rgba(0, 0, 0, .7);
+  --skeleton-a: #121B33;
+  --skeleton-b: #1A2645;
+  --overlay: rgba(3, 6, 14, .62);
+}
+
+/* ---------- Light ---------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #F3F5F9;
+  --sidebar: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-2: #F4F6FA;
+  --surface-raised: #EEF1F6;
+  --console-bg: #0B1120; /* the log console stays dark: easier to scan */
+  --border: rgba(15, 23, 42, .09);
+  --border-strong: rgba(15, 23, 42, .16);
+
+  --text: #0F172A;
+  --text-muted: #475569;
+  --text-subtle: #5B6B82;
+
+  /* Bright accents are fine as fills, but too light as text on white:
+     darken them for text so contrast stays ≥ 4.5:1. */
+  --accent-text: color-mix(in oklab, var(--accent) 52%, #000);
+
+  --success: #10B981;
+  --success-text: #047857;
+  --success-bg: rgba(16, 185, 129, .12);
+  --warning: #F59E0B;
+  --warning-text: #B45309;
+  --warning-bg: rgba(245, 158, 11, .14);
+  --danger: #EF4444;
+  --danger-text: #B91C1C;
+  --danger-bg: rgba(239, 68, 68, .11);
+  --info-text: #1D4ED8;
+  --info-bg: rgba(59, 130, 246, .11);
+  --violet-text: #6D28D9;
+  --violet-bg: rgba(139, 92, 246, .12);
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, .04);
+  --shadow-hover: 0 18px 36px -18px rgba(15, 23, 42, .28);
+  --shadow-pop: 0 24px 60px -12px rgba(15, 23, 42, .3);
+  --skeleton-a: #EEF1F6;
+  --skeleton-b: #E2E7EF;
+  --overlay: rgba(15, 23, 42, .4);
+}
+
+/* Derived accent shades (work in both themes). */
+:root {
+  --accent-35: color-mix(in srgb, var(--accent) 35%, transparent);
+  --accent-18: color-mix(in srgb, var(--accent) 18%, transparent);
+  --accent-10: color-mix(in srgb, var(--accent) 10%, transparent);
+}

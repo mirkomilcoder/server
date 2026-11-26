@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "requires": { "cockpit": "300" },
+  "menu": {
+    "index": {
+      "label": "Mirkomil Panel",
+      "order": 1,
+      "path": "index.html",
+      "keywords": [
+        { "matches": ["mirkomil", "panel", "boshqaruv", "bots", "botlar", "dashboard"] }
+      ]
+    }
+  }
+}

@@ -1,0 +1,214 @@
+import type {
+  Cockpit,
+  CockpitFile,
+  CockpitFileOptions,
+  CockpitLocation,
+  CockpitPermission,
+  CockpitProcess,
+  CockpitSpawnOptions,
+} from './cockpit-types';
+
+/*
+ * DEV ONLY — a tiny fake cockpit.js so `npm run dev` renders in a normal
+ * browser. Never shipped: cockpit.ts imports it only when import.meta.env.DEV.
+ */
+
+const NL = '\n';
+const bootedAt =Date.now() - (12 * 86400 + 4 * 3600) * 1000;
+
+const fakeFiles: Record<string, string> = {
+  '/etc/hostname': 'home-server\n',
+};
+
+function makeProcess(result: Promise<string>): CockpitProcess {
+  const p = result as CockpitProcess;
+  p.stream = () => p;
+  p.input = () => p;
+  p.close = () => {};
+  return p;
+}
+
+function spawn(argv: string[], _opts?: CockpitSpawnOptions): CockpitProcess {
+  const cmd = argv.join(' ');
+  if (cmd === 'cat /proc/uptime') {
+    const s = (Date.now() - bootedAt) / 1000;
+    return makeProcess(Promise.resolve(`${s.toFixed(2)} ${(s * 3.1).toFixed(2)}\n`));
+  }
+  if (argv[0] === 'cat' && argv[1] === '/proc/stat') return makeProcess(Promise.resolve(fakeProc()));
+  if (argv[0] === 'df') {
+    const size = 240e9, used = 98e9;
+    return makeProcess(Promise.resolve(['1B-blocks Used Avail', `${size} ${used} ${size - used}`, ''].join(NL)));
+  }
+  if (argv[0] === 'systemctl' && argv[1] === 'show') {
+    const units = argv.slice(argv.indexOf('--') + 1);
+    const block = (u: string) => [`Id=${u}`, 'LoadState=loaded', 'ActiveState=active', 'SubState=running'].join(NL);
+    return makeProcess(Promise.resolve(units.map(block).join(NL + NL) + NL));
+  }
+  if (argv[0] === 'journalctl') return fakeJournal();
+  if (argv[0] === 'mkdir' || argv[0] === 'logger') {
+    if (argv[0] === 'logger') console.info('[mock audit]', argv.at(-1));
+    return makeProcess(Promise.resolve(''));
+  }
+  return makeProcess(
+    Promise.reject({ message: `mock: not implemented: ${cmd}`, problem: 'not-found', exit_status: null, exit_signal: null }),
+  );
+}
+
+// Monotonic fake counters so CPU % and network speed look alive.
+let ticks = 0;
+function fakeProc(): string {
+  ticks++;
+  const busy = 1000 * ticks + Math.round(Math.random() * 300 + 150 * Math.sin(ticks / 4) + 200);
+  const idle = 3000 * ticks;
+  const rx = 1.5e6 * ticks + Math.random() * 1e6;
+  const tx = 0.3e6 * ticks;
+  return [
+    `cpu  ${busy} 0 0 ${idle} 0 0 0 0 0 0`,
+    'cpu0 1 0 0 1 0 0 0 0 0 0', 'cpu1 1 0 0 1 0 0 0 0 0 0', 'cpu2 1 0 0 1 0 0 0 0 0 0', 'cpu3 1 0 0 1 0 0 0 0 0 0',
+    'MemTotal:        8000000 kB', `MemAvailable:    ${4800000 - Math.round(Math.random() * 200000)} kB`,
+    'SwapTotal:       2000000 kB', 'SwapFree:        2000000 kB',
+    '0.42 0.38 0.31 1/234 5678',
+    'Inter-|   Receive', ' face |bytes',
+    `  eth0: ${Math.round(rx)} 0 0 0 0 0 0 0 ${Math.round(tx)} 0 0 0 0 0 0 0`,
+    '    lo: 999999 0 0 0 0 0 0 0 999999 0 0 0 0 0 0 0',
+  ].join(NL);
+}
+
+function fakeJournal(): CockpitProcess {
+  let streamCb: ((d: string) => void) | null = null;
+  let timer = 0;
+  const msgs: [number, string, string][] = [
+    [6, 'kino_bot', 'Yangi foydalanuvchi: /start'],
+    [6, 'sshd', 'Accepted publickey for home-server'],
+    [4, 'fail2ban', "Ban: noma'lum IP, 5 xato urinish"],
+    [6, 'watchdog', 'Internet OK (1.1.1.1)'],
+    [6, 'docker', 'milano-kafe qayta ishga tushdi'],
+    [6, 'apt', '4 ta yangilanish mavjud'],
+  ];
+  let n = 0;
+  const line = () => {
+    const [p, id, m] = msgs[n++ % msgs.length];
+    return JSON.stringify({ __CURSOR: `c${n}`, __REALTIME_TIMESTAMP: String(Date.now() * 1000), PRIORITY: String(p), SYSLOG_IDENTIFIER: id, MESSAGE: m }) + NL;
+  };
+  const p = makeProcess(new Promise<string>(() => {}));
+  p.stream = (cb) => {
+    streamCb = cb;
+    setTimeout(() => streamCb?.(Array.from({ length: 6 }, line).join('')), 300);
+    timer = window.setInterval(() => streamCb?.(line()), 4000);
+    return p;
+  };
+  p.close = () => window.clearInterval(timer);
+  return p;
+}
+
+function file<T>(path: string, opts: CockpitFileOptions<T> = {}): CockpitFile<T> {
+  const key = `mock-file:${path}`;
+  const load = (): T | null => {
+    const raw = localStorage.getItem(key) ?? fakeFiles[path] ?? null;
+    if (raw === null) return null;
+    return opts.syntax ? opts.syntax.parse(raw) : (raw as unknown as T);
+  };
+  const watchers = new Set<(c: T | null, tag: string) => void>();
+  return {
+    path,
+    read: async () => load(),
+    replace: async (content) => {
+      if (content === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, opts.syntax ? opts.syntax.stringify(content) : String(content));
+      const tag = String(Date.now());
+      watchers.forEach((w) => w(content, tag));
+      return tag;
+    },
+    watch: (cb) => {
+      watchers.add(cb);
+      queueMicrotask(() => cb(load(), '1'));
+      return { remove: () => watchers.delete(cb) };
+    },
+    close: () => watchers.clear(),
+  };
+}
+
+function permission(): CockpitPermission {
+  return { allowed: true, addEventListener() {}, removeEventListener() {}, close() {} };
+}
+
+// cockpit.location is hash-based in real Cockpit too, so mimic that.
+function makeLocation(): CockpitLocation {
+  const path = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);
+  const go = (p: string | string[]) => {
+    location.hash = '/' + (Array.isArray(p) ? p.join('/') : p.replace(/^\//, ''));
+  };
+  return { path, options: {}, href: '/' + path.join('/'), go, replace: go };
+}
+
+// Fake Guardian API (same JSON shapes as agent/mirkomil/api.py).
+function http(): ReturnType<Cockpit['http']> {
+  const now = () => Math.floor(Date.now() / 1000);
+  const series = (span: number, base: number, amp: number) =>
+    Array.from({ length: 120 }, (_, i) => [now() - span + (i * span) / 120, +(base + amp * Math.sin(i / 9) + Math.random() * amp * 0.4).toFixed(1)]);
+  const routes: Record<string, (p: Record<string, string>) => unknown> = {
+    '/v1/me': () => ({ user: 'home-server', role: 'admin', groups: ['sudo'] }),
+    '/v1/status': () => ({
+      hostname: 'home-server', time: now(), uptime: 1054321, score: 92, status: 'warn', telegram: true,
+      metrics: { cpu: 23, mem: 39, disk: 41, load1: 0.42, temp: null },
+      checks: [
+        { id: 'disk', severity: 'ok', title: 'Disk 41% band', detail: '' },
+        { id: 'memory', severity: 'ok', title: 'Xotira 39% band', detail: '' },
+        { id: 'internet', severity: 'ok', title: 'Internet bor', detail: '' },
+        { id: 'dns', severity: 'ok', title: 'DNS ishlayapti', detail: '' },
+        { id: 'failed_units', severity: 'ok', title: 'Barcha servislar ishlayapti', detail: '' },
+        { id: 'updates', severity: 'warn', title: '4 ta xavfsizlik yangilanishi kutmoqda', detail: "Unattended-upgrades ularni avtomatik o'rnatadi." },
+      ],
+    }),
+    '/v1/history': (p) => {
+      const span = { '1h': 3600, '24h': 86400, '7d': 604800 }[p.range as '1h'] ?? 3600;
+      return { range: p.range, series: { cpu: series(span, 25, 12), mem: series(span, 40, 4) } };
+    },
+    '/v1/events': () => ({
+      events: [
+        { id: 4, ts: now() - 600, kind: 'problem', severity: 'warn', title: '4 ta xavfsizlik yangilanishi kutmoqda', detail: '', actor: 'guardian' },
+        { id: 3, ts: now() - 7200, kind: 'recovered', severity: 'ok', title: 'Tuzaldi: Internet bor', detail: '', actor: 'guardian' },
+        { id: 2, ts: now() - 7500, kind: 'problem', severity: 'crit', title: "Internet yo'q", detail: '1.1.1.1, 8.8.8.8 va 9.9.9.9 ga ulanib bo‘lmadi.', actor: 'guardian' },
+        { id: 1, ts: now() - 86400, kind: 'info', severity: 'info', title: 'Guardian ishga tushdi', detail: '', actor: 'guardian' },
+      ],
+    }),
+  };
+  return {
+    get: async (path, params) => {
+      const r = routes[path];
+      if (!r) throw { status: 404, reason: 'Not Found', message: 'not found' };
+      return JSON.stringify(r(params ?? {}));
+    },
+    post: async () => '{}',
+    close: () => {},
+  };
+}
+
+export function createMockCockpit(): Cockpit {
+  const user = { id: 1000, name: 'home-server', full_name: 'Mirkomil', home: '/home/home-server' };
+  return {
+    __mock: true,
+    init: async () => {},
+    info: {
+      user,
+      os_release: { NAME: 'Ubuntu', VERSION: '26.04.1 LTS (Mock)', VERSION_ID: '26.04', PRETTY_NAME: 'Ubuntu 26.04.1 LTS' },
+      ws: { version: 'mock' },
+    },
+    user: async () => user,
+    spawn,
+    http,
+    file,
+    permission,
+    get location() {
+      return makeLocation();
+    },
+    jump: (p) => console.info('[mock] cockpit.jump', p),
+    hidden: false,
+    addEventListener: (ev, cb) => {
+      if (ev === 'locationchanged') window.addEventListener('hashchange', cb);
+    },
+    removeEventListener: (ev, cb) => {
+      if (ev === 'locationchanged') window.removeEventListener('hashchange', cb);
+    },
+  };
+}

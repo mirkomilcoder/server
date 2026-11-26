@@ -1,0 +1,14 @@
+# Managed by mirkomil-server — edits are overwritten by install.sh
+[DEFAULT]
+backend = systemd
+bantime = 1h
+bantime.increment = true
+bantime.maxtime = 1w
+findtime = 10m
+maxretry = 5
+# localhost and the Tailscale range are trusted
+ignoreip = 127.0.0.1/8 ::1 100.64.0.0/10
+
+[sshd]
+enabled = true
+mode = aggressive

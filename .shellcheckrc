@@ -1,0 +1,3 @@
+# Modules are sourced by installer/main.sh, which defines the shared helpers.
+external-sources=true
+disable=SC2154

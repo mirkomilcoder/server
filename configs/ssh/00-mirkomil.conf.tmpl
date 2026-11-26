@@ -1,0 +1,14 @@
+# Managed by mirkomil-server — edits are overwritten by install.sh
+# Loaded first from sshd_config.d, so these values win over later files
+# (e.g. cloud-init's 50-cloud-init.conf). Password login is switched off only
+# after the installer has verified that key login works for the admin user.
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication {{MK_SSH_PASSWORD_AUTH_VALUE}}
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+MaxAuthTries 4
+LoginGraceTime 30
+X11Forwarding no
+ClientAliveInterval 300
+ClientAliveCountMax 2

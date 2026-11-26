@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Mirkomil Server logo: server stack on the accent tile (matches the panel). -->
+  <rect width="64" height="64" rx="16" fill="#22D3EE"/>
+  <g fill="none" stroke="#04212A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="16" y="16" width="32" height="13" rx="3.5"/>
+    <rect x="16" y="35" width="32" height="13" rx="3.5"/>
+    <path d="M22 22.5h.01M22 41.5h.01"/>
+  </g>
+</svg>

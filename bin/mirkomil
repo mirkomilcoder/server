@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# mirkomil — command-line helper for SSH sessions.
+#   mirkomil status | doctor | repair | update | logs | version
+# (M1: shell version. Later milestones add apps/backup commands via the agent.)
+set -Eeuo pipefail
+
+SRC="$(readlink -f /opt/mirkomil/src 2>/dev/null || true)"
+[[ -f "$SRC/installer/lib/common.sh" ]] || { echo "Mirkomil o'rnatilmagan (/opt/mirkomil/src yo'q)" >&2; exit 1; }
+# shellcheck source=../installer/lib/common.sh
+. "$SRC/installer/lib/common.sh"
+MK_LOG=/dev/null  # read-only commands must not write the install log
+
+FAILS=0
+check() { # check "label" "fix hint" cmd...
+  local label="$1" hint="$2"; shift 2
+  if "$@" >/dev/null 2>&1; then ok "$label"; else warn "$label — ${hint}"; FAILS=$((FAILS + 1)); fi
+}
+
+unit_state() { systemctl is-active "$1" 2>/dev/null || true; }
+
+cmd_status() {
+  local up; up="$(uptime -p 2>/dev/null | sed 's/^up //')"
+  printf '%s%s%s · %s · ishlayapti: %s\n' "$C_BOLD" "$(hostname)" "$C_RESET" "$(os_release PRETTY_NAME)" "$up"
+  printf 'Yuklama: %s   RAM: %s   Disk /: %s\n' \
+    "$(cut -d' ' -f1-3 /proc/loadavg)" \
+    "$(free -h | awk '/Mem:/{print $3" / "$2}')" \
+    "$(df -h / | awk 'NR==2{print $3" / "$2" ("$5")"}')"
+  printf 'IP: %s   Tailscale: %s\n\n' "$(primary_ip)" "$(tailscale_ip || echo '-')"
+  local u s
+  for u in ssh ufw fail2ban docker cockpit.socket tailscaled pmcd pmlogger unattended-upgrades; do
+    s="$(unit_state "$u")"
+    case "$s" in
+      active) printf '  %s●%s %-22s %s\n' "$C_GREEN" "$C_RESET" "$u" "$s" ;;
+      inactive | "") printf '  %s○%s %-22s %s\n' "$C_DIM" "$C_RESET" "$u" "${s:-yo‘q}" ;;
+      *) printf '  %s●%s %-22s %s\n' "$C_RED" "$C_RESET" "$u" "$s" ;;
+    esac
+  done
+}
+
+cmd_doctor() {
+  section "Mirkomil doctor"
+  check "Internet (archive.ubuntu.com)" "tarmoq kabeli / router / DNS ni tekshiring" curl -fsS --max-time 8 -o /dev/null https://archive.ubuntu.com/ubuntu/
+  check "DNS ishlayapti" "resolvectl status" getent hosts github.com
+  check "Vaqt sinxron (NTP)" "sudo timedatectl set-ntp true" bash -c '[[ "$(timedatectl show -p NTPSynchronized --value)" == yes ]]'
+  check "SSH konfiguratsiyasi to'g'ri" "sudo sshd -t" bash -c 'sudo -n sshd -t 2>/dev/null || sshd -t'
+  check "Firewall (ufw) yoqilgan" "sudo mirkomil repair" bash -c 'systemctl is-active -q ufw && { sudo -n ufw status 2>/dev/null || true; } | grep -qv inactive'
+  check "fail2ban ishlayapti" "sudo systemctl restart fail2ban" systemctl is-active -q fail2ban
+  check "Docker ishlayapti" "sudo systemctl restart docker" systemctl is-active -q docker
+  check "Cockpit javob beryapti" "sudo systemctl restart cockpit.socket" bash -c 'curl -fsSk --max-time 8 https://localhost:9090/ping | grep -q cockpit'
+  check "PCP metrikalar yozilyapti" "sudo systemctl restart pmlogger" systemctl is-active -q pmlogger
+  if have tailscale; then
+    check "Tailscale ulangan" "sudo tailscale up --ssh" bash -c '[[ "$(tailscale status --json 2>/dev/null | jq -r .BackendState)" == Running ]]'
+  fi
+  check "Disk / da 15% dan ko'p bo'sh joy" "eski fayllarni tozalang: sudo apt clean; sudo journalctl --vacuum-size=500M" \
+    bash -c '(( $(df --output=pcent / | tail -1 | tr -dc 0-9) < 85 ))'
+  check "Xotira yetarli (available > 10%)" "eng ko'p xotira yeyotgan jarayonni toping: top" \
+    bash -c 'awk "/MemTotal/{t=\$2}/MemAvailable/{a=\$2}END{exit !(a/t>0.1)}" /proc/meminfo'
+  check "Ishlamay qolgan systemd servislari yo'q" "systemctl --failed" bash -c '[[ -z "$(systemctl --failed --no-legend --plain)" ]]'
+  check "Qayta yoqish talab qilinmaydi" "qulay vaqtda: sudo reboot" test ! -f /run/reboot-required
+  echo
+  if ((FAILS)); then printf '%s%d ta muammo topildi.%s\n' "$C_YELLOW" "$FAILS" "$C_RESET"; exit 1; fi
+  printf '%sHammasi joyida.%s\n' "$C_GREEN" "$C_RESET"
+}
+
+cmd_repair() { exec sudo "$SRC/installer/main.sh" --repair "$@"; }
+cmd_update() { exec sudo "$SRC/install.sh" --update "$@"; }
+cmd_logs() { sudo tail -n "${1:-100}" /var/log/mirkomil-install.log; }
+
+case "${1:-status}" in
+  status) cmd_status ;;
+  doctor) cmd_doctor ;;
+  repair) shift; cmd_repair "$@" ;;
+  update) shift; cmd_update "$@" ;;
+  logs) shift; cmd_logs "$@" ;;
+  version | --version) echo "mirkomil $MK_VERSION" ;;
+  -h | --help | help)
+    echo "Foydalanish: mirkomil [status|doctor|repair|update|logs [N]|version]" ;;
+  *) echo "Noma'lum buyruq: $1 (mirkomil help)" >&2; exit 2 ;;
+esac

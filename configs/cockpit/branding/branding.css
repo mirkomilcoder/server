@@ -1,0 +1,35 @@
+/* Managed by mirkomil-server — edits are overwritten by install.sh
+ * Cockpit login page branding. Only static CSS + our own logo (no external URLs).
+ */
+
+body.login-pf {
+  background: radial-gradient(1200px 600px at 15% -10%, rgba(34, 211, 238, .16), transparent 60%),
+              radial-gradient(900px 500px at 110% 110%, rgba(167, 139, 250, .14), transparent 60%),
+              #070B16 !important;
+  color: #E6EAF2;
+}
+
+#badge {
+  inline-size: 72px;
+  block-size: 72px;
+  background-image: url("logo.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+#brand { font-size: 0; }
+#brand::before {
+  content: "Mirkomil Server";
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #E6EAF2;
+}
+#brand::after {
+  content: "Xush kelibsiz! Server hisobingiz bilan kiring.";
+  display: block;
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #A9B4C7;
+}

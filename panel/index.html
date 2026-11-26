@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="uz" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mirkomil Panel</title>
+    <!--
+      cockpit.js is provided by Cockpit itself (the "base1" package) and is NOT
+      bundled: this way it is always the version that matches the running
+      Cockpit and receives its security updates. In `npm run dev` it 404s and
+      src/api/dev-mock.ts takes over.
+    -->
+    <script src="../base1/cockpit.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

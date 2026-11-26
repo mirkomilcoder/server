@@ -1,0 +1,41 @@
+name: Release
+
+# Push a tag like v0.2.0 → builds the panel, packs the repo + panel/dist into
+# mirkomil-server.tar.gz (+ .sha256) and attaches both to a GitHub release.
+# install.sh downloads "releases/latest/download/mirkomil-server.tar.gz".
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+      - name: Lint + test installer
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q shellcheck bats
+          shellcheck -x install.sh bin/mirkomil installer/main.sh installer/uninstall.sh installer/lib/*.sh installer/modules/*.sh
+          bats tests/bats
+      - name: Build panel
+        working-directory: panel
+        run: npm ci && npm run build
+      - name: Pack
+        run: |
+          mkdir -p out/mirkomil-server
+          git archive HEAD | tar -x -C out/mirkomil-server
+          cp -a panel/dist out/mirkomil-server/panel/dist
+          tar -C out -czf mirkomil-server.tar.gz mirkomil-server
+          sha256sum mirkomil-server.tar.gz > mirkomil-server.tar.gz.sha256
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" mirkomil-server.tar.gz mirkomil-server.tar.gz.sha256 --generate-notes

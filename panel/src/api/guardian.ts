@@ -37,6 +37,7 @@ export interface GuardianStatus {
 export interface GuardianEvent {
   id: number;
   ts: number;
+  check_id?: string | null;
   kind: 'problem' | 'recovered' | 'action' | 'info';
   severity: Severity;
   title: string;

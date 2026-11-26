@@ -21,8 +21,19 @@ jobs:
       - name: bats
         run: bats tests/bats
 
+  agent:
+    name: Guardian agent (pytest)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install pytest==8.3.4
+      - run: PYTHONPATH=agent python -m pytest -q tests/agent
+
   panel:
-    name: Panel (typecheck)
+    name: Panel (typecheck, tests, build)
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -36,3 +47,5 @@ jobs:
           cache-dependency-path: panel/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

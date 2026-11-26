@@ -134,11 +134,14 @@ function permission(): CockpitPermission {
 
 // cockpit.location is hash-based in real Cockpit too, so mimic that.
 function makeLocation(): CockpitLocation {
-  const path = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);
-  const go = (p: string | string[]) => {
-    location.hash = '/' + (Array.isArray(p) ? p.join('/') : p.replace(/^\//, ''));
+  const [rawPath, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
+  const path = rawPath.split('/').filter(Boolean);
+  const options = Object.fromEntries(new URLSearchParams(query));
+  const go = (p: string | string[], opts?: Record<string, string>) => {
+    const q = opts && Object.keys(opts).length ? '?' + new URLSearchParams(opts).toString() : '';
+    location.hash = '/' + (Array.isArray(p) ? p.join('/') : p.replace(/^\//, '')) + q;
   };
-  return { path, options: {}, href: '/' + path.join('/'), go, replace: go };
+  return { path, options, href: '/' + path.join('/'), go, replace: go };
 }
 
 // Fake Guardian API (same JSON shapes as agent/mirkomil/api.py).

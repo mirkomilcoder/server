@@ -2,14 +2,15 @@
   "name": "mirkomil-panel",
   "private": true,
   "version": "0.1.0",
-  "description": "Mirkomil Panel \u0432\u0402\u201d Cockpit plugin for a home Ubuntu server",
+  "description": "Mirkomil Panel \u0420\u0406\u0420\u201a\u0432\u0402\u045c Cockpit plugin for a home Ubuntu server",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev-build": "vite build --watch --mode development",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "deploy": "bash scripts/deploy.sh"
+    "deploy": "bash scripts/deploy.sh",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.1.1",
@@ -27,6 +28,7 @@
     "@types/react-dom": "18.3.5",
     "@vitejs/plugin-react": "4.3.4",
     "typescript": "5.7.2",
-    "vite": "6.0.7"
+    "vite": "6.0.7",
+    "vitest": "2.1.8"
   }
 }

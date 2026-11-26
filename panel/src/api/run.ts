@@ -43,6 +43,7 @@ export async function runAction<K extends ActionId>(
   const argv = def.argv(parsed.data, { user });
   const spawnOpts: CockpitSpawnOptions = { err: 'message' };
   if (def.privileged) spawnOpts.superuser = 'require';
+  if (def.environ) spawnOpts.environ = def.environ;
 
   const audit = def.audit ?? !!def.privileged;
   const target = def.target ? def.target(parsed.data) : '-';

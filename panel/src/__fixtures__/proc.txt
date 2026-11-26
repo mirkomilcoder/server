@@ -1,0 +1,75 @@
+cpu  22061 921 13420 939680 16316 0 2651 0 0 0
+cpu0 9585 172 6692 468491 7998 0 2492 0 0 0
+cpu1 12476 749 6727 471189 8318 0 158 0 0 0
+intr 2176876 149 9 0 0 0 0 0 0 0 0 0 0 158 0 4052 0 0 0 0 117601 0 73156 27 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ctxt 1695058
+btime 1795698968
+processes 36503
+procs_running 1
+procs_blocked 0
+softirq 1765129 3 796710 185 114884 70483 0 5897 473608 0 303359
+MemTotal:        2194944 kB
+MemFree:          336700 kB
+MemAvailable:    1607528 kB
+Buffers:           71988 kB
+Cached:          1266644 kB
+SwapCached:            0 kB
+Active:           425876 kB
+Inactive:        1126780 kB
+Active(anon):     221072 kB
+Inactive(anon):     1260 kB
+Active(file):     204804 kB
+Inactive(file):  1125520 kB
+Unevictable:        9152 kB
+Mlocked:            9152 kB
+SwapTotal:             0 kB
+SwapFree:              0 kB
+Zswap:                 0 kB
+Zswapped:              0 kB
+Dirty:              1280 kB
+Writeback:             0 kB
+AnonPages:        223268 kB
+Mapped:           226640 kB
+Shmem:              1504 kB
+KReclaimable:     106196 kB
+Slab:             174484 kB
+SReclaimable:     106196 kB
+SUnreclaim:        68288 kB
+KernelStack:        3260 kB
+PageTables:         6708 kB
+SecPageTables:         0 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:     1097472 kB
+Committed_AS:    1321560 kB
+VmallocTotal:   34359738367 kB
+VmallocUsed:       26800 kB
+VmallocChunk:          0 kB
+Percpu:             1520 kB
+HardwareCorrupted:     0 kB
+AnonHugePages:         0 kB
+ShmemHugePages:        0 kB
+ShmemPmdMapped:        0 kB
+FileHugePages:     61440 kB
+FilePmdMapped:         0 kB
+CmaTotal:              0 kB
+CmaFree:          157292 kB
+Unaccepted:            0 kB
+Balloon:               0 kB
+GPUActive:         35640 kB
+GPUReclaim:            0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+DirectMap4k:      171968 kB
+DirectMap2M:     2449408 kB
+0.28 0.30 0.31 2/204 36502
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo:  182797    1381    0    0    0     0          0         0   182797    1381    0    0    0     0       0          0
+enp0s3: 214797857  256260    0    0    0     0          0        14 96105382  122214    0    0    0     0       0          0
+docker0:       0       0    0    0    0     0          0         0        0       0    0    2    0     0       0          0

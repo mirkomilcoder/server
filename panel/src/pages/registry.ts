@@ -40,7 +40,7 @@ export const PAGE_IDS = [
 export type PageId = (typeof PAGE_IDS)[number];
 
 export interface PageProps {
-  go: (id: PageId) => void;
+  go: (id: PageId, options?: Record<string, string>) => void;
 }
 
 /** Sidebar placement: top group, "Server" submenu, management, developer, bottom. */
@@ -69,22 +69,22 @@ export const PAGES: PageDef[] = [
   { id: 'apps', icon: LayoutGrid, label: 'nav.apps', group: 'main', component: soon('M5'), milestone: 'M5' },
   { id: 'files', icon: Folder, label: 'nav.files', group: 'main', component: lazy(() => import('./FilesPage')) },
 
-  { id: 'services', icon: Server, label: 'nav.services', group: 'server', component: soon('M4'), milestone: 'M4' },
+  { id: 'services', icon: Server, label: 'nav.services', group: 'server', component: lazy(() => import('./ServicesPage')) },
   { id: 'bots', icon: Bot, label: 'nav.bots', group: 'server', component: soon('M5'), milestone: 'M5' },
-  { id: 'updates', icon: Download, label: 'nav.updates', group: 'server', component: soon('M4'), milestone: 'M4' },
-  { id: 'activity', icon: Activity, label: 'nav.activity', group: 'server', component: soon('M4'), milestone: 'M4' },
-  { id: 'power', icon: Power, label: 'nav.power', group: 'server', danger: true, component: soon('M4'), milestone: 'M4' },
+  { id: 'updates', icon: Download, label: 'nav.updates', group: 'server', component: lazy(() => import('./UpdatesPage')) },
+  { id: 'activity', icon: Activity, label: 'nav.activity', group: 'server', component: lazy(() => import('./ActivityPage')) },
+  { id: 'power', icon: Power, label: 'nav.power', group: 'server', danger: true, component: lazy(() => import('./PowerPage')) },
 
   { id: 'monitoring', icon: LineChart, label: 'nav.monitoring', group: 'manage', live: true, component: lazy(() => import('./GuardianPage')) },
   { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: soon('M5'), milestone: 'M5' },
   { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: soon('M6'), milestone: 'M6' },
   { id: 'backup', icon: DatabaseBackup, label: 'nav.backup', group: 'manage', component: soon('M8'), milestone: 'M8' },
   { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: soon('M5'), milestone: 'M5' },
-  { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: soon('M4'), milestone: 'M4' },
+  { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: lazy(() => import('./SecurityPage')) },
   { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: soon('M6'), milestone: 'M6' },
 
   { id: 'terminal', icon: SquareTerminal, label: 'nav.terminal', group: 'dev', component: lazy(() => import('./TerminalPage')) },
-  { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: soon('M4'), milestone: 'M4' },
+  { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: lazy(() => import('./LogsPage')) },
 
   { id: 'settings', icon: Settings, label: 'nav.settings', group: 'bottom', component: lazy(() => import('./SettingsPage')) },
 ];

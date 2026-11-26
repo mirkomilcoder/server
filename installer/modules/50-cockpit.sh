@@ -5,17 +5,12 @@
 # archives through python3-pcp, so we install pcp + python3-pcp instead.
 MODULE_TITLE="Cockpit + metrikalar tarixi (PCP)"
 
-COCKPIT_PACKAGES=(cockpit-ws cockpit-bridge cockpit-system cockpit-storaged pcp python3-pcp)
+COCKPIT_PACKAGES=(cockpit-ws cockpit-bridge cockpit-system cockpit-storaged cockpit-files pcp python3-pcp)
 
 module_run() {
   apt_install "${COCKPIT_PACKAGES[@]}"
 
-  local before; before="$(cat /etc/cockpit/cockpit.conf 2>/dev/null || true)"
-  install_template "$MK_SRC/configs/cockpit/cockpit.conf.tmpl" /etc/cockpit/cockpit.conf
-  if [[ "$before" != "$(cat /etc/cockpit/cockpit.conf)" ]] && systemctl is-active -q cockpit.service; then
-    # Restarting cockpit.service only drops open web sessions; the socket stays.
-    run systemctl restart cockpit.service
-  fi
+  cockpit_conf_apply
   run systemctl enable --now cockpit.socket
 
   run systemctl enable --now pmcd.service pmlogger.service

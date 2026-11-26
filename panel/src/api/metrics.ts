@@ -52,8 +52,10 @@ export function parseProc(text: string): { counters: Omit<Counters, 't'>; cores:
       load1 = parseFloat(line);
     } else if (line.includes(':') && /^\s*[\w.@-]+:\s*\d/.test(line)) {
       const [name, rest] = line.split(':');
-      if (VIRTUAL_IF.test(name.trim())) continue;
       const f = rest.trim().split(/\s+/).map(Number);
+      // /proc/meminfo has lines like "HugePages_Total: 0" — real /proc/net/dev rows have 16 counters
+      if (f.length < 16 || f.some(Number.isNaN)) continue;
+      if (VIRTUAL_IF.test(name.trim())) continue;
       rx += f[0];
       tx += f[8];
     }

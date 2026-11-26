@@ -30,7 +30,7 @@
   "banner.admin.off": "Cheklangan rejim",
   "admin.title": "Administrator rejimi",
   "admin.on": "Administrator rejimi yoqilgan: panel tizimni boshqara oladi (servislar, yangilash, qayta yoqish). Bunday amallar \"admin\" belgisi bilan ko'rsatiladi va Faollik tarixiga yoziladi.",
-  "admin.off": "Hozir cheklangan rejimdasiz: faqat ko'rish mumkin. Tizimni boshqarish uchun Cockpit'ning yuqori panelidagi \"Limited access\" tugmasini bosing va parolingizni kiriting.",
+  "admin.off": "Hozir cheklangan rejimdasiz: faqat ko'rish mumkin. Tizimni boshqarish uchun administrator rejimini yoqing.",
   "common.close": "Yopish",
   "common.cancel": "Bekor qilish",
   "common.retry": "Qayta urinish",
@@ -196,5 +196,18 @@
   "time.now": "hozir",
   "time.ago.m": "{n} daqiqa oldin",
   "time.ago.h": "{n} soat oldin",
-  "time.ago.d": "{n} kun oldin"
+  "time.ago.d": "{n} kun oldin",
+  "admin.button": "Admin rejimi",
+  "admin.enable": "Administrator rejimini yoqish",
+  "admin.disable": "Administrator rejimini o'chirish",
+  "admin.intro": "Servislar, yangilanishlar va qayta yoqish kabi tizim amallari uchun parolingizni kiriting. Parol to'g'ridan-to'g'ri tizimga (sudo) uzatiladi va hech qayerda saqlanmaydi.",
+  "admin.password": "Parol",
+  "admin.submit": "Tasdiqlash",
+  "admin.wait": "Tekshirilmoqda…",
+  "admin.enabled": "Administrator rejimi yoqildi",
+  "admin.disabled": "Administrator rejimi o'chirildi",
+  "admin.failed": "Administrator rejimini yoqib bo'lmadi",
+  "admin.noBridge": "Bu foydalanuvchida sudo huquqi yo'q.",
+  "terminal.newTab": "Yangi oynada ochish",
+  "files.missing": "Fayl menejeri (cockpit-files) o'rnatilmagan. Uni o'rnatish uchun serverda bajaring:"
 }

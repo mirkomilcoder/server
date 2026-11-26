@@ -33,7 +33,8 @@ module_run() {
     rm -rf "$PANEL_DIR.old"
     changed "panel: $PANEL_DIR ($(jq -r .version "$PANEL_DIR/manifest.json" 2>/dev/null))"
   fi
-  ok "Panel o'rnatilgan: Cockpit menyusida \"Mirkomil Panel\""
+  cockpit_conf_apply
+  ok "Panel o'rnatilgan: kirgandan keyin to'g'ridan-to'g'ri Mirkomil Panel ochiladi"
 
   # Branded login page (logo, colors, Uzbek welcome).
   # cockpit-ws ships these files itself, so we never just overwrite them:

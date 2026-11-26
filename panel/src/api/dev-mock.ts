@@ -201,6 +201,31 @@ function http(): ReturnType<Cockpit['http']> {
   };
 }
 
+// Fake cockpit.Superuser: asks for a password once, accepts anything non-empty.
+function dbus(): ReturnType<Cockpit['dbus']> {
+  const listeners = new Set<(...a: never[]) => void>();
+  let pending: ((v: unknown[]) => void) | null = null;
+  const proxy = {
+    valid: true,
+    Bridges: ['sudo'],
+    wait: async () => {},
+    call: async (method: string, args: unknown[]) => {
+      if (method === 'Start') {
+        setTimeout(() => listeners.forEach((l) => (l as unknown as (...x: unknown[]) => void)({}, '', '[sudo] password for home-server: ', '', false, '')), 200);
+        return new Promise<unknown[]>((res) => (pending = res));
+      }
+      if (method === 'Answer' && pending) {
+        const ok = String(args[0]).length > 0;
+        setTimeout(() => { if (ok) { pending?.([]); pending = null; } }, 400);
+      }
+      return [];
+    },
+    addEventListener: (_ev: string, cb: (...a: never[]) => void) => listeners.add(cb),
+    removeEventListener: (_ev: string, cb: (...a: never[]) => void) => listeners.delete(cb),
+  };
+  return { proxy: () => proxy, close: () => {} };
+}
+
 export function createMockCockpit(): Cockpit {
   const user = { id: 1000, name: 'home-server', full_name: 'Mirkomil', home: '/home/home-server' };
   return {
@@ -214,6 +239,7 @@ export function createMockCockpit(): Cockpit {
     user: async () => user,
     spawn,
     http,
+    dbus,
     file,
     permission,
     get location() {

@@ -228,6 +228,27 @@ add_apt_repo() {
   fi
 }
 
+# ---------- cockpit ----------
+
+# Write /etc/cockpit/cockpit.conf. Mirkomil Panel becomes Cockpit's shell (the
+# page shown after login) only when it is really installed — otherwise login
+# would land on a missing page. Called by 50-cockpit and again by 60-panel.
+cockpit_conf_apply() {
+  local conf=/etc/cockpit/cockpit.conf before
+  if [[ -f /usr/share/cockpit/mirkomil/index.html ]]; then
+    MK_COCKPIT_SHELL_LINE="Shell = /mirkomil/index.html"
+  else
+    MK_COCKPIT_SHELL_LINE="# Shell: Cockpit default (Mirkomil Panel is not installed yet)"
+  fi
+  before="$(cat "$conf" 2>/dev/null || true)"
+  install_template "$MK_SRC/configs/cockpit/cockpit.conf.tmpl" "$conf"
+  if [[ "$before" != "$(cat "$conf")" ]] && systemctl is-active -q cockpit.service; then
+    # drops open web sessions only; cockpit.socket keeps listening
+    run systemctl restart cockpit.service
+  fi
+  return 0
+}
+
 # ---------- misc ----------
 # NOTE: never use `awk '{...; exit}'` after a pipe here: with `set -o pipefail`
 # the writer gets SIGPIPE (exit 141) and the installer aborts.

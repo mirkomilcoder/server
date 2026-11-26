@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Bell, ChevronDown, LogOut, Moon, Search, Settings, Sun, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, ChevronDown, LogOut, Moon, Search, Settings, ShieldCheck, ShieldOff, Sun, XCircle } from 'lucide-react';
 import { cockpit } from '@/api/cockpit';
 import { useT, type TranslationKey } from '@/i18n';
 import { useAlerts, useGuardian } from '@/state/guardian';
@@ -10,6 +10,7 @@ import { useMotion } from '@/theme/motion';
 import type { PageId } from '@/pages/registry';
 import { ModeSwitch } from './ModeSwitch';
 import { BrandMark } from './BrandMark';
+import { AdminDialog } from './AdminDialog';
 
 /* Search (opens Ctrl+K palette) · notifications · theme · account menu. */
 
@@ -55,6 +56,7 @@ export function TopBar({ onSearch, go }: { onSearch: () => void; go: (id: PageId
   const alerts = useAlerts();
   const { update } = useSettings();
   const [menu, setMenu] = useState<'bell' | 'user' | null>(null);
+  const [adminOpen, setAdminOpen] = useState(false);
   const close = () => setMenu(null);
 
   const dark = document.documentElement.dataset.theme !== 'light';
@@ -98,6 +100,19 @@ export function TopBar({ onSearch, go }: { onSearch: () => void; go: (id: PageId
             <button className="popover__foot" onClick={() => { close(); go('monitoring'); }}>{t('top.viewAll')}</button>
           </Popover>
         </div>
+
+        {sys.admin !== null && (
+          <button
+            className={`admin-btn${sys.admin ? ' admin-btn--on' : ''}`}
+            onClick={() => setAdminOpen(true)}
+            aria-pressed={sys.admin}
+            title={t(sys.admin ? 'admin.disable' : 'admin.enable')}
+          >
+            {sys.admin ? <ShieldCheck size={18} /> : <ShieldOff size={18} />}
+            <span className="admin-btn__label">{sys.admin ? t('admin.button') : t('banner.admin.off')}</span>
+          </button>
+        )}
+        <AdminDialog open={adminOpen} onClose={() => setAdminOpen(false)} isAdmin={!!sys.admin} />
 
         <button
           className="icon-btn icon-btn--lg"

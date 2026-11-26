@@ -30,7 +30,7 @@
   "banner.admin.off": "Limited mode",
   "admin.title": "Administrative access",
   "admin.on": "Administrative access is on: the panel can manage the system (services, updates, reboot). Such actions carry an \"admin\" badge and are written to the activity log.",
-  "admin.off": "You are in limited mode: view only. To manage the system, click \"Limited access\" in Cockpit's top bar and enter your password.",
+  "admin.off": "You are in limited mode: view only. Turn on administrative access to manage the system.",
   "common.close": "Close",
   "common.cancel": "Cancel",
   "common.retry": "Retry",
@@ -196,5 +196,18 @@
   "time.now": "just now",
   "time.ago.m": "{n} min ago",
   "time.ago.h": "{n} h ago",
-  "time.ago.d": "{n} d ago"
+  "time.ago.d": "{n} d ago",
+  "admin.button": "Admin mode",
+  "admin.enable": "Turn on administrative access",
+  "admin.disable": "Turn off administrative access",
+  "admin.intro": "Enter your password for system actions (services, updates, reboot). It goes straight to the system (sudo) and is never stored.",
+  "admin.password": "Password",
+  "admin.submit": "Confirm",
+  "admin.wait": "Checking…",
+  "admin.enabled": "Administrative access is on",
+  "admin.disabled": "Administrative access is off",
+  "admin.failed": "Could not turn on administrative access",
+  "admin.noBridge": "This user has no sudo rights.",
+  "terminal.newTab": "Open in new tab",
+  "files.missing": "The file manager (cockpit-files) is not installed. Run on the server:"
 }

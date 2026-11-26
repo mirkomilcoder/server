@@ -100,7 +100,23 @@ export interface CockpitHttpError {
   problem?: string | null;
 }
 
+/** Minimal D-Bus proxy surface we use (cockpit.dbus(...).proxy(iface, path)). */
+export interface CockpitDBusProxy {
+  valid: boolean;
+  wait(): Promise<void>;
+  call(method: string, args: unknown[]): Promise<unknown[]>;
+  addEventListener(ev: string, cb: (...args: never[]) => void): void;
+  removeEventListener(ev: string, cb: (...args: never[]) => void): void;
+  [prop: string]: unknown;
+}
+
+export interface CockpitDBusClient {
+  proxy(iface: string, path: string): CockpitDBusProxy;
+  close(): void;
+}
+
 export interface Cockpit {
+  dbus(name: string | null, options?: { bus?: 'system' | 'session' | 'internal'; superuser?: 'try' | 'require' }): CockpitDBusClient;
   http(endpoint: string | number, options?: { superuser?: 'try' | 'require' }): CockpitHttpClient;
   init?: () => Promise<void>;
   info?: CockpitInfo;

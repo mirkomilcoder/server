@@ -21,7 +21,16 @@ only the access it needs**, and that the web UI cannot become a remote shell.
 * A non-admin panel user trying to change Guardian rules → enforced in Guardian by kernel-verified
   uid → Linux groups (`mirkomil-admin`/`sudo`, `mirkomil-dev`, `mirkomil-viewer`), not by the UI.
 * Internet-facing attacks → no ports are opened: Cockpit is reachable from the LAN subnet you choose
-  and via Tailscale only; public access (later milestone) goes through Cloudflare Tunnel + Access.
+  and via Tailscale only. Public access goes through an outbound-only Cloudflare Tunnel:
+  `panel.<domain>` is protected by Cloudflare Access (allow-listed emails, 7-day session) **and**
+  cloudflared validates the Access JWT itself (`originRequest.access.required`), so a misconfigured
+  Access app or a direct hit on the tunnel cannot skip it; Cockpit's own login still follows.
+  Apps are served through the Caddy router bound to 127.0.0.1 only; databases and Docker are never
+  routed. cloudflared runs as a DynamicUser with an empty capability set (exposure score 1.7).
+* Cloudflare API token → typed once in the panel, passed to the root helper over the local socket,
+  stored in `/var/lib/mirkomil/tunnel/private/api_token` (`root`, `0600`), never logged or returned.
+  Use a token scoped to the listed permissions and the one zone. Only DNS records created by
+  Mirkomil (comment `mirkomil`) are ever modified or deleted.
 * SSH brute force → key-only login (enabled only after key login is proven to work), fail2ban with
   increasing ban times.
 * Lock-out by the installer → SSH port allowed before ufw is enabled, `sshd -t` validated with

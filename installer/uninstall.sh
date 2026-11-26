@@ -18,6 +18,7 @@ MANAGED_FILES=(
   /usr/local/bin/mirkomil
   /etc/systemd/system/mirkomil-guardian.service
   /etc/systemd/system/mirkomil-helper.service
+  /etc/systemd/system/mirkomil-tunnel.service
   /etc/tmpfiles.d/mirkomil.conf
 )
 
@@ -33,7 +34,7 @@ uninstall_main() {
   fi
 
   local f bak
-  systemctl disable --now mirkomil-guardian.service mirkomil-helper.service >>"$MK_LOG" 2>&1 || true
+  systemctl disable --now mirkomil-guardian.service mirkomil-helper.service mirkomil-tunnel.service >>"$MK_LOG" 2>&1 || true
   for f in "${MANAGED_FILES[@]}"; do
     [[ -e "$f" ]] || continue
     # never delete a file we don't manage (daemon.json has no header: compare content)
@@ -66,5 +67,5 @@ uninstall_main() {
   # installer state files only: Guardian history (a subdirectory) is kept
   find "$MK_STATE" -maxdepth 1 -type f -delete 2>/dev/null || true
   info "Sozlamalar ($MK_ETC) saqlandi — kerak bo'lmasa: sudo rm -rf $MK_ETC"
-  ok "Tayyor. Paketlarni olib tashlash (ixtiyoriy): sudo apt purge tailscale cockpit*"
+  ok "Tayyor. Paketlarni olib tashlash (ixtiyoriy): sudo apt purge tailscale cloudflared cockpit*"
 }

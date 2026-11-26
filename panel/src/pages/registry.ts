@@ -77,11 +77,11 @@ export const PAGES: PageDef[] = [
 
   { id: 'monitoring', icon: LineChart, label: 'nav.monitoring', group: 'manage', live: true, component: lazy(() => import('./GuardianPage')) },
   { id: 'docker', icon: Container, label: 'nav.docker', group: 'manage', component: lazy(() => import('./DockerPage')) },
-  { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: soon('M6'), milestone: 'M6' },
+  { id: 'domains', icon: Globe, label: 'nav.domains', group: 'manage', component: lazy(() => import('./DomainsPage')) },
   { id: 'backup', icon: DatabaseBackup, label: 'nav.backup', group: 'manage', component: soon('M8'), milestone: 'M8' },
   { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: lazy(() => import('./DatabasesPage')) },
   { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: lazy(() => import('./SecurityPage')) },
-  { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: soon('M6'), milestone: 'M6' },
+  { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: lazy(() => import('./NetworkPage')) },
 
   { id: 'terminal', icon: SquareTerminal, label: 'nav.terminal', group: 'dev', component: lazy(() => import('./TerminalPage')) },
   { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: lazy(() => import('./LogsPage')) },

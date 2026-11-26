@@ -4,8 +4,8 @@ Oddiy kompyuterni **bitta buyruq** bilan xavfsiz, o'zini o'zi kuzatadigan uy ser
 chiroyli boshqaruv paneli bilan (Cockpit plagini).
 
 > Holat: **ishlab chiqilmoqda (v0.1)**. Tayyor: o'rnatuvchi, panel (3 rejim), Guardian monitoring va
-> avtomatik tuzatish. Keyingi bosqichlar: ilovalarni deploy qilish (PaaS), Cloudflare Tunnel va domenlar,
-> foydalanuvchilar va rollar, zaxira nusxalar.
+> avtomatik tuzatish, ilovalarni GitHub'dan deploy qilish (PaaS), PostgreSQL/Redis, Cloudflare Tunnel va
+> domenlar. Keyingi bosqichlar: foydalanuvchilar va rollar, zaxira nusxalar.
 
 ## Nima o'rnatiladi
 
@@ -48,6 +48,27 @@ Maxfiy kalitlar (Tailscale, Telegram tokenlari) faqat `/etc/mirkomil/secrets.env
 
 Brauzer birinchi marta "sertifikat ishonchsiz" deydi: bu Cockpit'ning o'z sertifikati. Domen ulanganidan
 keyin (Cloudflare Tunnel) bu ogohlantirish yo'qoladi.
+
+## Internetdan kirish (domen)
+
+Routerda port ochilmaydi: `cloudflared` serverdan faqat tashqariga ulanadi.
+
+1. Domeningizni (masalan `mirkomil-host.uz`) Cloudflare'ga qo'shing (bepul reja), NS serverlarni almashtiring.
+2. dash.cloudflare.com → **Zero Trust** bo'limini bir marta oching (bepul reja, jamoa nomi).
+3. API token yarating (*Create Custom Token*): Account · Cloudflare Tunnel · Edit; Account · Access: Apps and
+   Policies · Edit; Account · Access: Organizations, Identity Providers, and Groups · Read; Zone · DNS · Edit;
+   Zone · Zone · Read.
+4. Panel → **Domenlar & SSL**: tokenni va panelga kira oladigan emaillarni kiriting.
+
+Natija:
+
+* `https://panel.<domen>` — Cloudflare Access ortida (Google, GitHub yoki emailga kod; sessiya 7 kun), keyin
+  server paroli. `cloudflared` Access imzosini (JWT) o'zi ham tekshiradi.
+* `https://<ilova>.<domen>` — har bir deploy qilingan veb-ilova; DNS yozuvlari avtomatik yaratiladi/o'chiriladi.
+* `https://<domen>` — tanlagan ilovangiz (masalan "Mirkomil Host" sahifasi).
+
+Token faqat `/var/lib/mirkomil/tunnel/private/` da (`root`, `0600`) saqlanadi va panelda qayta ko'rsatilmaydi.
+Siz yaratmagan DNS yozuvlariga tegilmaydi.
 
 ## Kundalik buyruqlar (SSH orqali)
 

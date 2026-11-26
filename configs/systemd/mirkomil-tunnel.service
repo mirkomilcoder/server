@@ -1,0 +1,42 @@
+# Managed by mirkomil-server — edits are overwritten by install.sh
+# Cloudflare Tunnel: outbound-only connection, no inbound ports.
+# Configured from the panel (Domenlar & SSL); until then the condition keeps it off.
+# Routes live in Cloudflare (remotely managed tunnel); the token is root-only.
+[Unit]
+Description=Mirkomil Cloudflare Tunnel
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/mirkomil/tunnel/private/tunnel.env
+
+[Service]
+Type=simple
+EnvironmentFile=/var/lib/mirkomil/tunnel/private/tunnel.env
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run
+Restart=always
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

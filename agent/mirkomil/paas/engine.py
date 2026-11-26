@@ -343,6 +343,11 @@ def set_route(app: str, hosts: list[str] | None, upstream: str | None) -> None:
 
 # ---------------------------------------------------------------- containers
 
+def _scheme() -> str:
+    """https once the Cloudflare Tunnel is set up (Cloudflare terminates TLS), else http (local only)."""
+    return "https" if Path("/var/lib/mirkomil/tunnel/private/tunnel.env").exists() else "http"
+
+
 def container_name(app: str, deploy_id: str) -> str:
     return f"mk-{app}-{deploy_id[-11:].replace('-', '')}"
 
@@ -497,7 +502,12 @@ def deploy(spec_path: Path) -> int:
         write_shared(adir / "current.json", json.dumps({"deploy_id": did, "container": name, "image": image,
                                                         "port": port, "web": web, "type": det_type}))
         prune_images(app)
-        job.finish("success", url=f"http://{app}.{spec['domain']}" if web and spec["domain"] else "")
+        if web and spec["domain"]:
+            from ..helper import sync_tunnel_quietly
+            tun = sync_tunnel_quietly()
+            if tun != "off":
+                job.log(f"Cloudflare Tunnel (DNS + marshrut): {tun}")
+        job.finish("success", url=f"{_scheme()}://{app}.{spec['domain']}" if web and spec["domain"] else "")
         job.log("\n✓ Deploy muvaffaqiyatli tugadi")
         return 0
     except Exception as e:  # report every failure in the job status

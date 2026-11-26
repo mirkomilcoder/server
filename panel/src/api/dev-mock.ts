@@ -208,6 +208,9 @@ function http(): ReturnType<Cockpit['http']> {
     '/v1/apps/milano-kafe/deploys/20261126-120000-aaaa': () => ({ status: mockDeploy(now() - 30, 'running', 'build'), next: 1,
       text: '\n==> Kod yuklanmoqda: https://github.com/mirkomil/milano-kafe (main)\ncommit: 3f9c2e1 Menyu sahifasi\n\n==> Loyiha turi aniqlanmoqda\ntur: django\n\n==> Docker obraz yig\'ilmoqda\n#5 [3/6] RUN pip install -r requirements.txt && pip install gunicorn\n#5 12.4 Successfully installed Django-5.1.4 gunicorn-23.0.0 …\n' }),
     '/v1/apps/kino-bot/logs': () => ({ text: '2026-11-26T18:20:01Z INFO Bot ishga tushdi\n2026-11-26T18:21:44Z INFO Yangi foydalanuvchi: /start\n' }),
+    '/v1/tunnel': () => ({ configured: true, domain: 'mirkomil-host.uz', panel_host: 'panel.mirkomil-host.uz', team: 'mirkomil.cloudflareaccess.com',
+      hosts: ['panel.mirkomil-host.uz', 'milano-kafe.mirkomil-host.uz', 'kino-bot.mirkomil-host.uz', 'mirkomil-host.uz'],
+      emails: ['admin@example.com'], root_app: 'milano-kafe', status: 'healthy', connections: 4, service: 'active' }),
     '/v1/identity': () => ({ brand: 'Mirkomil Host', domain: 'mirkomil-host.uz' }),
     '/v1/events': () => ({
       events: [

@@ -215,6 +215,35 @@ export const databases = {
     post<{ result: string }>(`/v1/databases/${encodeURIComponent(name)}/delete`, { confirm, drop_data }),
 };
 
+export interface TunnelStatus {
+  configured: boolean;
+  domain?: string;
+  panel_host?: string;
+  hosts?: string[];
+  emails?: string[];
+  root_app?: string | null;
+  team?: string;
+  /** Cloudflare's view: healthy | degraded | down | inactive | unknown */
+  status?: string;
+  connections?: number;
+  /** systemd unit state of cloudflared */
+  service?: string;
+  error?: string;
+}
+
+export interface TunnelSync {
+  configured: boolean;
+  hosts?: string[];
+  dns?: { created: string[]; skipped: string[]; removed: string[] };
+}
+
+export const tunnel = {
+  status: () => get<TunnelStatus>('/v1/tunnel'),
+  /** token may be empty to reuse the stored one (changing emails / root app). */
+  setup: (token: string, emails: string[], root_app: string | null) => post<TunnelSync>('/v1/tunnel/setup', { token, emails, root_app }),
+  sync: () => post<TunnelSync>('/v1/tunnel/sync', {}),
+};
+
 export const docker = {
   containers: () => get<{ containers: DockerContainer[]; stats: Record<string, { cpu: string; mem: string; memPerc: string }> }>('/v1/docker/containers'),
   op: (name: string, op: 'start' | 'stop' | 'restart') => post<{ result: string }>('/v1/docker/container', { name, op }),

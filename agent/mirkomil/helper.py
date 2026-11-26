@@ -253,6 +253,7 @@ def v_app_delete(a: dict[str, Any]) -> Any:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=60)
     if app in engine.load_routes():
         engine.set_route(app, None, None)
+        sync_tunnel_quietly()
     tags = subprocess.run(["docker", "image", "ls", f"mirkomil/app-{app}", "--format", "{{.Repository}}:{{.Tag}}"],
                           capture_output=True, text=True).stdout.split()
     for t in tags:
@@ -340,7 +341,73 @@ def v_db_delete(a: dict[str, Any]) -> Any:
     return _paas_call(lambda: dbs.delete(str(a.get("name", "")), bool(a.get("drop_data"))))
 
 
+# ---------------------------------------------------------------- Cloudflare Tunnel
+
+def _cf_call(fn: Callable[[], Any]) -> Any:
+    from .cloudflare import CFError
+    try:
+        return fn()
+    except CFError as e:
+        raise VerbError(str(e))
+
+
+def _tunnel_restart() -> None:
+    subprocess.run(["systemctl", "restart", "mirkomil-tunnel.service"], capture_output=True, timeout=60, check=False)
+
+
+def v_tunnel_setup(a: dict[str, Any]) -> Any:
+    """Token (new or the stored one) + admin emails → tunnel, Access app, routes, DNS; then (re)start cloudflared."""
+    from . import cloudflare
+    from .config import valid_domain
+    from .paas.engine import APP_RE
+    domain = str(a.get("domain", ""))
+    if not valid_domain(domain):
+        raise VerbError("invalid domain")
+    token = str(a.get("token") or "").strip()
+    if not token:
+        try:
+            token = cloudflare._read_secret("api_token")
+        except OSError:
+            raise VerbError("Cloudflare API token kerak")
+    emails = a.get("emails")
+    if not isinstance(emails, list):
+        raise VerbError("emails: list expected")
+    root = a.get("root_app") or None
+    if root is not None and not APP_RE.match(str(root)):
+        raise VerbError("invalid root app")
+    out = _cf_call(lambda: cloudflare.setup(token, domain, [str(e) for e in emails], str(root) if root else None))
+    _tunnel_restart()
+    return out
+
+
+def v_tunnel_sync(_a: dict[str, Any]) -> Any:
+    from . import cloudflare
+    return _cf_call(cloudflare.sync)
+
+
+def v_tunnel_status(_a: dict[str, Any]) -> Any:
+    from . import cloudflare
+    out = _cf_call(cloudflare.status)
+    p = subprocess.run(["systemctl", "is-active", "mirkomil-tunnel.service"], capture_output=True, text=True, timeout=10)
+    out["service"] = p.stdout.strip() or "unknown"
+    return out
+
+
+def sync_tunnel_quietly() -> str:
+    """Called after a route change; never fails the caller (the tunnel may not be configured)."""
+    from . import cloudflare
+    try:
+        r = cloudflare.sync()
+        return "ok" if r.get("configured") else "off"
+    except Exception as e:  # noqa: BLE001 — best effort, reported in the deploy log
+        log.warning("tunnel sync failed: %s", e)
+        return f"xato: {e}"
+
+
 VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "tunnel.setup": v_tunnel_setup,
+    "tunnel.sync": v_tunnel_sync,
+    "tunnel.status": v_tunnel_status,
     "app.deploykey": v_app_deploykey,
     "app.remote_head": v_app_remote_head,
     "db.create": v_db_create,

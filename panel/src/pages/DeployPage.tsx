@@ -310,6 +310,8 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
             <input className="input input--plain" type="number" min={0} max={65535} value={port} onChange={(e) => setPort(Number(e.target.value) || 0)} /></label>
         </div>
       </Card>
+      <AutoDeployCard a={a} onSaved={onSaved} />
+      <DeployKeyCard name={a.name} />
       <Card className="danger-zone" title={t('app.delete')}>
         <p className="muted" style={{ marginBottom: 12 }}>{t('app.delete.body', { name: a.name })}</p>
         <button className="btn btn--danger" disabled={!isAdmin} onClick={onDelete} title={isAdmin ? undefined : t('identity.adminOnly')}>
@@ -317,6 +319,64 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
         </button>
       </Card>
     </>
+  );
+}
+
+function AutoDeployCard({ a, onSaved }: { a: AppDetail; onSaved: () => void }) {
+  const { t } = useT();
+  const toast = useToast();
+  const [on, setOn] = useState(!!a.autodeploy);
+  const toggle = async (v: boolean) => {
+    setOn(v);
+    try {
+      await apps.setAutodeploy(a.name, v);
+      onSaved();
+    } catch (e) {
+      setOn(!v);
+      toast({ kind: 'error', title: t('action.failed'), details: e instanceof Error ? e.message : String(e) });
+    }
+  };
+  return (
+    <Card title={t('auto.title')} tools={
+      <label className="switch">
+        <input type="checkbox" role="switch" checked={on} onChange={(e) => toggle(e.target.checked)} aria-label={t('auto.title')} />
+        <span className="switch__track" aria-hidden />
+      </label>
+    }>
+      <p className="muted">{t('auto.help')}</p>
+    </Card>
+  );
+}
+
+function DeployKeyCard({ name }: { name: string }) {
+  const { t } = useT();
+  const toast = useToast();
+  const [key, setKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const show = async () => {
+    setBusy(true);
+    try {
+      setKey((await apps.deployKey(name)).public_key);
+    } catch (e) {
+      toast({ kind: 'error', title: t('action.failed'), details: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title={t('key.title')}>
+      <p className="muted" style={{ marginBottom: 12 }}>{t('key.help')}</p>
+      {key ? (
+        <div className="key-box">
+          <code className="mono">{key}</code>
+          <button className="btn btn--sm" onClick={async () => {
+            try { await navigator.clipboard.writeText(key); toast({ kind: 'success', title: t('key.copied') }); } catch { /* ignore */ }
+          }}>{t('key.copy')}</button>
+        </div>
+      ) : (
+        <button className="btn btn--sm" disabled={busy} onClick={show}>{t('key.create')}</button>
+      )}
+    </Card>
   );
 }
 

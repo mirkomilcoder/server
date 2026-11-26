@@ -40,7 +40,12 @@ PROXY_IMAGE = "caddy:2.10.2-alpine"
 PROXY_BIND = "127.0.0.1:8088"  # public traffic arrives via Cloudflare Tunnel (M6), never a public port
 
 APP_RE = re.compile(r"^[a-z][a-z0-9-]{1,30}[a-z0-9]$")
-REPO_RE = re.compile(r"^https://(github\.com|gitlab\.com|codeberg\.org)/[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}?(\.git)?$")
+# public: https://github.com/owner/repo · private (deploy key): git@github.com:owner/repo.git
+REPO_RE = re.compile(r"^(https://(github\.com|gitlab\.com|codeberg\.org)/|git@(github\.com|gitlab\.com|codeberg\.org):)"
+                     r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}?(\.git)?$")
+SSH_HOST_RE = re.compile(r"^git@([a-z.]+):")
+# Pinned host keys (GitHub publishes these); other hosts are trusted on first use per app.
+KNOWN_HOSTS = Path(os.environ.get("MK_KNOWN_HOSTS", "/opt/mirkomil/src/paas/known_hosts"))
 BRANCH_RE = re.compile(r"^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]{1,100}$")
 DEPLOY_RE = re.compile(r"^[0-9]{8}-[0-9]{6}-[a-f0-9]{4}$")
 ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
@@ -168,6 +173,58 @@ def read_env(app: str) -> dict[str, str]:
     if not p.exists():
         return {}
     return dict(l.split("=", 1) for l in p.read_text(encoding="utf-8").splitlines() if "=" in l)
+
+
+# ---------------------------------------------------------------- git (public + deploy keys)
+
+GIT_SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never", "-c", "protocol.ext.allow=never"]
+
+
+def private_dir(app: str) -> Path:
+    """Root-only (0700): deploy key, per-app known_hosts. Guardian cannot read it."""
+    p = app_dir(app) / "private"
+    p.mkdir(parents=True, exist_ok=True)
+    os.chmod(p, 0o700)
+    return p
+
+
+def deploy_key(app: str) -> str:
+    """Create (once) an ed25519 deploy key for the app; return the PUBLIC key only."""
+    key = private_dir(app) / "deploy_key"
+    if not key.exists():
+        r = quiet(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", f"mirkomil-{app}", "-f", str(key)])
+        if r.returncode != 0:
+            raise DeployError("deploy kalit yaratib bo'lmadi: " + r.stderr.strip()[-200:])
+        os.chmod(key, 0o600)
+    return (key.with_suffix(".pub")).read_text().strip()
+
+
+def git_env(app: str, repo: str) -> dict[str, str]:
+    env = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "/bin/false", "GIT_CONFIG_NOSYSTEM": "1"}
+    m = SSH_HOST_RE.match(repo)
+    if m:
+        key = private_dir(app) / "deploy_key"
+        if not key.exists():
+            raise DeployError("bu private repo uchun avval deploy kalitini yarating va GitHub'ga qo'shing")
+        host = m.group(1)
+        app_kh = private_dir(app) / "known_hosts"
+        # github.com: only the pinned key is accepted; others: trust on first use, then pinned per app
+        strict = "yes" if host == "github.com" else "accept-new"
+        env["GIT_SSH_COMMAND"] = (f"ssh -i {key} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking={strict} "
+                                  f"-o UserKnownHostsFile='{KNOWN_HOSTS} {app_kh}' -o ConnectTimeout=20")
+    return env
+
+
+def remote_head(app: str, repo: str, branch: str) -> str:
+    """Latest commit SHA of the branch on the remote (for auto-deploy), without cloning."""
+    r = subprocess.run(["git", *GIT_SAFE, "ls-remote", "--", repo, f"refs/heads/{branch}"],
+                       capture_output=True, text=True, timeout=60, env={**os.environ, **git_env(app, repo)}, check=False)
+    if r.returncode != 0:
+        raise DeployError("repo'ga ulanib bo'lmadi: " + r.stderr.strip()[-200:])
+    sha = r.stdout.split()[0] if r.stdout.split() else ""
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise DeployError(f"branch topilmadi: {branch}")
+    return sha
 
 
 # ---------------------------------------------------------------- job log / status
@@ -382,12 +439,11 @@ def deploy(spec_path: Path) -> int:
             job.step("clone", f"Kod yuklanmoqda: {spec['repo']} ({spec['branch']})")
             src = adir / "src"
             shutil.rmtree(src, ignore_errors=True)
-            git_env = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "/bin/false", "GIT_CONFIG_NOSYSTEM": "1"}
-            sh(job, ["git", "-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never", "-c", "protocol.ext.allow=never",
-                     "clone", "--depth", "1", "--single-branch", "--branch", spec["branch"], "--no-recurse-submodules",
-                     "--", spec["repo"], str(src)], timeout=600, env=git_env)
+            sh(job, ["git", *GIT_SAFE, "clone", "--depth", "1", "--single-branch", "--branch", spec["branch"],
+                     "--no-recurse-submodules", "--", spec["repo"], str(src)], timeout=600, env=git_env(app, spec["repo"]))
             os.chmod(src, 0o700)
             commit = quiet(["git", "-C", str(src), "log", "-1", "--format=%h %s"]).stdout.strip()[:200]
+            job.status["commit_sha"] = quiet(["git", "-C", str(src), "rev-parse", "HEAD"]).stdout.strip()[:40]
             job.log(f"commit: {commit}")
 
             job.step("detect", "Loyiha turi aniqlanmoqda")

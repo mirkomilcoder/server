@@ -13,7 +13,7 @@ def test_valid_spec_normalises():
 
 @pytest.mark.parametrize("field,value", [
     ("app", "Shop"), ("app", "a"), ("app", "-x-"), ("app", "x" * 40), ("app", "a;b"),
-    ("repo", "git@github.com:acme/shop.git"), ("repo", "https://evil.com/acme/shop"),
+    ("repo", "git@evil.com:acme/shop.git"), ("repo", "https://evil.com/acme/shop"),
     ("repo", "https://github.com/acme/shop/../x"), ("repo", "file:///etc"),
     ("branch", "--upload-pack=x"), ("branch", "a..b"),
     ("type", "compose"), ("mem_mb", 10), ("cpus", 99), ("deploy_id", "x"),

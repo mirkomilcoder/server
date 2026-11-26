@@ -140,6 +140,7 @@ export interface AppInfo {
   port: number;
   mem_mb: number;
   cpus: number;
+  autodeploy?: number;
   created_by: string;
   created_at: number;
   current: { deploy_id?: string; container?: string; web?: boolean; type?: AppType; port?: number };
@@ -189,6 +190,29 @@ export const apps = {
   settings: (name: string, s: Partial<Pick<NewApp, 'branch' | 'type' | 'port' | 'mem_mb' | 'cpus'>>) =>
     post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, s),
   remove: (name: string, confirm: string) => post<{ deleted: string }>(`/v1/apps/${encodeURIComponent(name)}/delete`, { confirm }),
+  deployKey: (name: string) => post<{ public_key: string }>(`/v1/apps/${encodeURIComponent(name)}/deploykey`, {}),
+  setAutodeploy: (name: string, on: boolean) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { autodeploy: on }),
+};
+
+export interface DatabaseInfo {
+  name: string;
+  kind: 'postgres' | 'redis';
+  image: string;
+  mem_mb: number;
+  created_by: string;
+  created_at: number;
+  attached: string[];
+  state: string;
+  host: string;
+  port: number;
+}
+
+export const databases = {
+  list: () => get<{ databases: DatabaseInfo[] }>('/v1/databases'),
+  create: (name: string, kind: DatabaseInfo['kind'], mem_mb: number) => post<DatabaseInfo>('/v1/databases', { name, kind, mem_mb }),
+  attach: (name: string, app: string) => post<{ app: string; var: string }>(`/v1/databases/${encodeURIComponent(name)}/attach`, { app }),
+  remove: (name: string, confirm: string, drop_data: boolean) =>
+    post<{ result: string }>(`/v1/databases/${encodeURIComponent(name)}/delete`, { confirm, drop_data }),
 };
 
 export const docker = {

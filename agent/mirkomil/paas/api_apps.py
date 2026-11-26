@@ -72,7 +72,47 @@ def _validate_settings(b: dict[str, Any], partial: bool = False) -> dict[str, An
             if not lo <= v <= hi:
                 raise HttpError(400, f"{key}: {lo}–{hi}")
             out[key] = v
+    if "autodeploy" in b:
+        out["autodeploy"] = 1 if b.get("autodeploy") else 0
     return out
+
+
+AUTODEPLOY_EVERY_S = 300
+
+
+def autodeploy_tick(state: Any) -> list[str]:
+    """
+    Auto-deploy (runs in Guardian's loop, blocking → executor): for each app
+    with autodeploy on, ask the helper for the branch's latest commit and start
+    a deploy when it differs from the last successful one. Returns started apps.
+    """
+    started = []
+    rows = state.db.conn.execute("SELECT * FROM apps WHERE autodeploy = 1").fetchall()
+    for row in rows:
+        a = dict(row)
+        deps = deploys_of(a["name"], 10)
+        if any(d.get("state") == "running" for d in deps):
+            continue
+        last_ok = next((d for d in deps if d.get("state") == "success" and d.get("commit_sha")), None)
+        last_any = deps[0] if deps else None
+        try:
+            sha = helper.call("app.remote_head", {"app": a["name"], "repo": a["repo"], "branch": a["branch"]}, timeout=90)["sha"]
+        except Exception:
+            continue  # network blip / auth problem: try again next round
+        if last_ok and last_ok["commit_sha"] == sha:
+            continue
+        # don't retry the same broken commit forever
+        if last_any and last_any.get("state") == "failed" and last_any.get("commit_sha") == sha:
+            continue
+        try:
+            res = helper.call("app.deploy", {**{k: a[k] for k in ("repo", "branch", "type", "port", "mem_mb", "cpus")},
+                                             "app": a["name"], "domain": state.cfg.domain, "by": "auto"}, timeout=60)
+        except Exception:
+            continue
+        state.db.add_event("action", "info", f"Avto-deploy: {a['name']} (yangi commit {sha[:7]})", res.get("deploy_id", ""),
+                           check_id=f"app:{a['name']}", actor="guardian")
+        started.append(a["name"])
+    return started
 
 
 def _validate_env(env: Any) -> dict[str, str]:
@@ -94,6 +134,10 @@ def _validate_env(env: Any) -> dict[str, str]:
 def register(api: Any, state: Any) -> None:
     db = state.db
     db.conn.executescript(SCHEMA)
+    # migration: auto-deploy flag (added after the first release of the apps table)
+    cols = {r[1] for r in db.conn.execute("PRAGMA table_info(apps)").fetchall()}
+    if "autodeploy" not in cols:
+        db.conn.execute("ALTER TABLE apps ADD COLUMN autodeploy INTEGER NOT NULL DEFAULT 0")
     loop_call = lambda fn: asyncio.get_running_loop().run_in_executor(None, fn)  # noqa: E731
 
     async def h(verb: str, args: dict[str, Any] | None = None, timeout: float = 120) -> Any:
@@ -235,6 +279,47 @@ def register(api: Any, state: Any) -> None:
         db.conn.execute("DELETE FROM apps WHERE name = ?", (a["name"],))
         db.add_event("action", "warn", f"Ilova o'chirildi: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
         return {"deleted": a["name"]}
+
+    @api.route("POST", "/v1/apps/{name}/deploykey", role="developer")
+    async def deploykey(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        """Create (once) and return the PUBLIC deploy key; the private key never leaves the server."""
+        a = get_app(q["name"])
+        res = await h("app.deploykey", {"app": a["name"]})
+        db.add_event("action", "info", f"Deploy kaliti: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
+        return res
+
+    # ---- managed databases ----
+
+    @api.route("GET", "/v1/databases")
+    async def dbs_list(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+        return {"databases": await h("db.list")}
+
+    @api.route("POST", "/v1/databases", role="developer")
+    async def dbs_create(p: Peer, _q: dict[str, str], b: Any) -> Any:
+        b = b if isinstance(b, dict) else {}
+        kind = str(b.get("kind", ""))
+        if kind not in ("postgres", "redis"):
+            raise HttpError(400, "tur: postgres yoki redis")
+        res = await h("db.create", {"name": str(b.get("name", "")), "kind": kind, "mem_mb": int(b.get("mem_mb") or 256), "by": p.user}, timeout=400)
+        db.add_event("action", "info", f"Yangi baza: {res['name']} ({kind})", actor=p.user)
+        return res
+
+    @api.route("POST", "/v1/databases/{name}/attach", role="developer")
+    async def dbs_attach(p: Peer, q: dict[str, str], b: Any) -> Any:
+        b = b if isinstance(b, dict) else {}
+        app = get_app(str(b.get("app", "")))["name"]
+        res = await h("db.attach", {"name": q["name"], "app": app, "var": b.get("var") or None})
+        db.add_event("action", "info", f"Baza ulandi: {q['name']} → {app} ({res['var']})", check_id=f"app:{app}", actor=p.user)
+        return res
+
+    @api.route("POST", "/v1/databases/{name}/delete", role="admin")
+    async def dbs_delete(p: Peer, q: dict[str, str], b: Any) -> Any:
+        b = b if isinstance(b, dict) else {}
+        if str(b.get("confirm", "")) != q["name"]:
+            raise HttpError(400, "tasdiqlash uchun baza nomini yozing")
+        res = await h("db.delete", {"name": q["name"], "drop_data": bool(b.get("drop_data"))}, timeout=300)
+        db.add_event("action", "warn", f"Baza o'chirildi: {q['name']} — {res}", actor=p.user)
+        return {"result": res}
 
     # ---- raw Docker (admin) ----
 

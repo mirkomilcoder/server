@@ -141,6 +141,8 @@ async def run_loop(state: GuardianState, stop: asyncio.Event) -> None:
     loop = asyncio.get_running_loop()
     tick = 0
     last_prune = 0.0
+    last_auto = time.time()  # first auto-deploy check after one interval, not at startup
+    from .paas.api_apps import AUTODEPLOY_EVERY_S, autodeploy_tick
     while not stop.is_set():
         try:
             fast = await loop.run_in_executor(None, state.collect_fast)
@@ -155,6 +157,9 @@ async def run_loop(state: GuardianState, stop: asyncio.Event) -> None:
             if transitions:
                 await loop.run_in_executor(None, state.alert, transitions)
             await loop.run_in_executor(None, state.heal)
+            if time.time() - last_auto >= AUTODEPLOY_EVERY_S:
+                last_auto = time.time()
+                await loop.run_in_executor(None, autodeploy_tick, state)
             if time.time() - last_prune > 3600:
                 state.db.prune(state.cfg.retention_days)
                 last_prune = time.time()

@@ -337,3 +337,9 @@
 .input:disabled { opacity: .6; }
 .form-error { margin-top: 10px; color: var(--danger-text); font-size: 13.5px; }
 .files-frame { background: var(--surface); }
+
+/* auto-collapsed sidebar (≤900px) hides the same extras as the manual collapse */
+@media (max-width: 900px) {
+  .shell .live-pill, .shell .nav-item__chevron, .shell .brand-card, .shell .sidebar__divider { display: none; }
+  .shell .nav-sub { margin-left: 0; padding-left: 0; border-left: 0; }
+}

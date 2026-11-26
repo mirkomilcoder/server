@@ -45,6 +45,7 @@ module_run() {
   # PaaS data: root-owned, group "mirkomil" may read deploy status/logs (never app secrets)
   install -d -m 0750 -o root -g mirkomil /var/lib/mirkomil/apps
   install -d -m 0755 -o root -g root /var/lib/mirkomil/proxy
+  install -d -m 0750 -o root -g mirkomil /var/lib/mirkomil/dbs
   run systemd-tmpfiles --create /etc/tmpfiles.d/mirkomil.conf
 
   # restart when the agent's code changed too (not only its unit files)

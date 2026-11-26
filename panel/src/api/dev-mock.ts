@@ -199,6 +199,10 @@ function http(): ReturnType<Cockpit['http']> {
     },
     '/v1/rules': () => rulesState,
     '/v1/apps': () => ({ domain: 'mirkomil-host.uz', apps: mockApps(now()) }),
+    '/v1/databases': () => ({ databases: [
+      { name: 'shop-db', kind: 'postgres', image: 'postgres:17.6-alpine', mem_mb: 256, created_by: 'home-server', created_at: now() - 3600, attached: ['milano-kafe'], state: 'running', host: 'mk-db-shop-db', port: 5432 },
+      { name: 'cache', kind: 'redis', image: 'redis:7.4.6-alpine', mem_mb: 128, created_by: 'home-server', created_at: now() - 3000, attached: [], state: 'running', host: 'mk-db-cache', port: 6379 },
+    ] }),
     '/v1/apps/milano-kafe': () => ({ ...mockApps(now())[0], env: [{ key: 'DATABASE_URL', length: 58 }, { key: 'SECRET_KEY', length: 50 }],
       deploys: [mockDeploy(now() - 30, 'running', 'build'), mockDeploy(now() - 7200, 'success', 'switch'), mockDeploy(now() - 86400, 'failed', 'health')] }),
     '/v1/apps/milano-kafe/deploys/20261126-120000-aaaa': () => ({ status: mockDeploy(now() - 30, 'running', 'build'), next: 1,

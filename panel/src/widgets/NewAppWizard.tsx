@@ -12,7 +12,8 @@ import { Modal } from '@/components/Modal';
  * the server re-checks everything anyway.
  */
 
-const REPO_RE = /^https:\/\/(github\.com|gitlab\.com|codeberg\.org)\/[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}?(\.git)?$/;
+// public https://… or private git@host:owner/repo.git (deploy key) — same rule as the server
+const REPO_RE = /^(https:\/\/(github\.com|gitlab\.com|codeberg\.org)\/|git@(github\.com|gitlab\.com|codeberg\.org):)[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}?(\.git)?$/;
 const APP_RE = /^[a-z][a-z0-9-]{1,30}[a-z0-9]$/;
 const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const TYPES: AppType[] = ['dockerfile', 'django', 'fastapi', 'flask', 'bot', 'node', 'static'];
@@ -77,7 +78,7 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
             <input className="input mono" placeholder="https://github.com/user/project" value={repo} autoFocus
               onChange={(e) => setRepo(e.target.value)} aria-invalid={!!repo && !repoOk} />
           </span>
-          <span className={repo && !repoOk ? 'form-error' : 'card__meta'}>{repo && !repoOk ? t('wizard.invalidRepo') : t('wizard.repoHint')}</span>
+          <span className={repo && !repoOk ? 'form-error' : 'card__meta'}>{repo && !repoOk ? t('wizard.invalidRepo') : repo.startsWith('git@') ? t('wizard.repoHintPrivate') : t('wizard.repoHint')}</span>
         </label>
 
         <div className="wizard__row">

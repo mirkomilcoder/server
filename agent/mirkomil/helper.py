@@ -293,7 +293,60 @@ def v_docker_logs(a: dict[str, Any]) -> Any:
     return (p.stdout + p.stderr)[-300_000:]
 
 
+def _paas_call(fn: Callable[[], Any]) -> Any:
+    from .paas.engine import DeployError
+    try:
+        return fn()
+    except DeployError as e:
+        raise VerbError(str(e))
+
+
+def v_app_deploykey(a: dict[str, Any]) -> Any:
+    from .paas import engine
+    app = _app(a)
+    if not engine.app_dir(app).exists():
+        raise VerbError("app not found")
+    return {"public_key": _paas_call(lambda: engine.deploy_key(app))}
+
+
+def v_app_remote_head(a: dict[str, Any]) -> Any:
+    from .paas import engine
+    app, repo, branch = _app(a), str(a.get("repo", "")), str(a.get("branch", ""))
+    if not engine.REPO_RE.match(repo) or not engine.BRANCH_RE.match(branch):
+        raise VerbError("invalid repo or branch")
+    return {"sha": _paas_call(lambda: engine.remote_head(app, repo, branch))}
+
+
+def v_db_create(a: dict[str, Any]) -> Any:
+    from .paas import dbs
+    by = re.sub(r"[^a-z0-9_.-]", "", str(a.get("by", "?")))[:32]
+    return _paas_call(lambda: dbs.create(str(a.get("name", "")), str(a.get("kind", "")), int(a.get("mem_mb") or 256), by))
+
+
+def v_db_list(_a: dict[str, Any]) -> Any:
+    from .paas import dbs
+    return dbs.list_all()
+
+
+def v_db_attach(a: dict[str, Any]) -> Any:
+    from .paas import dbs
+    app = _app(a)
+    var = a.get("var") or None
+    return _paas_call(lambda: dbs.attach(str(a.get("name", "")), app, str(var) if var else None))
+
+
+def v_db_delete(a: dict[str, Any]) -> Any:
+    from .paas import dbs
+    return _paas_call(lambda: dbs.delete(str(a.get("name", "")), bool(a.get("drop_data"))))
+
+
 VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "app.deploykey": v_app_deploykey,
+    "app.remote_head": v_app_remote_head,
+    "db.create": v_db_create,
+    "db.list": v_db_list,
+    "db.attach": v_db_attach,
+    "db.delete": v_db_delete,
     "app.deploy": v_app_deploy,
     "app.env.set": v_app_env_set,
     "app.env.keys": v_app_env_keys,

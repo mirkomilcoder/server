@@ -160,7 +160,7 @@ function http(): ReturnType<Cockpit['http']> {
   const routes: Record<string, (p: Record<string, string>) => unknown> = {
     '/v1/me': () => ({ user: 'home-server', role: 'admin', groups: ['sudo'] }),
     '/v1/status': () => ({
-      hostname: 'home-server', time: now(), uptime: 1054321, score: 92, status: 'warn', telegram: true,
+      hostname: 'home-server', time: now(), uptime: 1054321, score: 92, status: 'warn', telegram: true, ip: '192.168.1.20', tailscale_ip: '100.101.102.103', os: 'Ubuntu 26.04.1 LTS',
       metrics: { cpu: 23, mem: 39, disk: 41, load1: 0.42, temp: null },
       checks: [
         { id: 'disk', severity: 'ok', title: 'Disk 41% band', detail: '' },
@@ -220,6 +220,7 @@ export function createMockCockpit(): Cockpit {
       return makeLocation();
     },
     jump: (p) => console.info('[mock] cockpit.jump', p),
+    logout: () => console.info('[mock] logout'),
     hidden: false,
     addEventListener: (ev, cb) => {
       if (ev === 'locationchanged') window.addEventListener('hashchange', cb);

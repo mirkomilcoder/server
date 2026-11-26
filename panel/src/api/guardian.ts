@@ -28,6 +28,10 @@ export interface GuardianStatus {
   checks: Check[];
   metrics: Record<string, number | null>;
   telegram: boolean;
+  mode?: 'dryrun' | 'auto';
+  ip?: string | null;
+  tailscale_ip?: string | null;
+  os?: string;
 }
 
 export interface GuardianEvent {

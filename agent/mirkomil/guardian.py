@@ -53,6 +53,9 @@ class GuardianState:
             "status": worst(self.checks),
             "telegram": self.cfg.telegram_enabled,
             "mode": self.rules.mode(),
+            "ip": self.slow.get("ip"),
+            "tailscale_ip": self.slow.get("tailscale_ip"),
+            "os": c.os_pretty_name(),
         }
 
     def heal(self) -> None:
@@ -83,6 +86,8 @@ class GuardianState:
             "failed_units": c.failed_units(),
             "tailscale": c.tailscale_state(),
             "reboot_required": c.reboot_required(),
+            "ip": c.primary_ip(),
+            "tailscale_ip": c.tailscale_ip(),
         }
 
     def facts(self) -> dict[str, Any]:

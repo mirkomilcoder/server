@@ -88,7 +88,9 @@
 }
 .segmented__btn--active { color: var(--text); font-weight: 700; }
 .segmented__pill { position: absolute; inset: 0; border-radius: 9px; background: color-mix(in srgb, var(--accent) 16%, var(--surface-raised)); }
-.segmented__btn span { position: relative; }
+/* label above the sliding pill; the pill itself must stay absolutely positioned */
+.segmented__btn > span:not(.segmented__pill) { position: relative; }
+.segmented__btn > .segmented__pill { position: absolute; inset: 0; }
 .segmented--lg .segmented__btn { min-height: 44px; padding: 0 20px; font-size: 15px; }
 
 /* ================= status banner ================= */

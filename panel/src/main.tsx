@@ -4,6 +4,7 @@ import './theme/fonts.css';
 import './theme/tokens.css';
 import './theme/base.css';
 import './theme/layout.css';
+import './theme/home.css';
 import { loadCockpit } from './api/cockpit';
 
 /*

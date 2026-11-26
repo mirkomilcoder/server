@@ -44,6 +44,16 @@ module_run() {
   install_file "$cfg/mirkomil-tmpfiles.conf" /etc/tmpfiles.d/mirkomil.conf
   run systemd-tmpfiles --create /etc/tmpfiles.d/mirkomil.conf
 
+  # restart when the agent's code changed too (not only its unit files)
+  local code_hash
+  code_hash="$(cd "$MK_SRC/agent" && find . -name '*.py' -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+  if [[ "$(cat "$MK_STATE/agent.sha256" 2>/dev/null)" != "$code_hash" ]]; then
+    units_changed=1
+    printf '%s
+' "$code_hash" >"$MK_STATE/agent.sha256"
+    changed "Guardian kodi yangilandi"
+  fi
+
   run systemctl daemon-reload
   run systemctl enable mirkomil-helper.service mirkomil-guardian.service
   if ((units_changed)) || [[ "$MK_DO_UPGRADE" == 1 ]]; then

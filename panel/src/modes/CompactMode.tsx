@@ -51,7 +51,7 @@ export default function CompactMode({ page, go, openPalette }: ModeProps) {
             </>
           ) : (
             <>
-              <TopBar onSearch={openPalette} />
+              <TopBar onSearch={openPalette} go={go} />
               <PageView page={page} go={go} />
             </>
           )}

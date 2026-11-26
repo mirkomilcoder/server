@@ -94,6 +94,17 @@ def disk_usage(path: str = "/") -> dict[str, float]:
     return {"total": u.total, "used": u.used, "free": u.free, "pct": u.used / u.total * 100 if u.total else 0.0}
 
 
+def os_pretty_name() -> str:
+    for p in ("/etc/os-release", "/usr/lib/os-release"):
+        try:
+            for line in Path(p).read_text().splitlines():
+                if line.startswith("PRETTY_NAME="):
+                    return line.split("=", 1)[1].strip().strip('"')
+        except OSError:
+            continue
+    return "Linux"
+
+
 def uptime_seconds() -> float:
     return float((PROC / "uptime").read_text().split()[0])
 
@@ -138,6 +149,23 @@ def dns_ok(name: str = "archive.ubuntu.com", timeout: float = 4.0) -> bool:
             return bool(fut.result(timeout=timeout))
         except Exception:
             return False
+
+
+def primary_ip() -> str | None:
+    """LAN address of the default route (UDP connect sends no packets)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("1.1.1.1", 53))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def tailscale_ip() -> str | None:
+    if not shutil.which("tailscale"):
+        return None
+    out = _run(["tailscale", "ip", "-4"], timeout=5).split()
+    return out[0] if out else None
 
 
 def internet_ok() -> bool:

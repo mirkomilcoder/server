@@ -6,7 +6,7 @@ import { Modal } from './Modal';
 
 /* Phone navigation (≤720px): 4 main pages + "More" sheet with the rest. */
 
-const PRIMARY: PageId[] = ['dashboard', 'bots', 'logs', 'terminal'];
+const PRIMARY: PageId[] = ['dashboard', 'monitoring', 'deploy', 'terminal'];
 
 export function TabBar({ page, go }: { page: PageId; go: (id: PageId) => void }) {
   const { t } = useT();

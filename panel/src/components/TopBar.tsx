@@ -9,6 +9,7 @@ import { useSystem } from '@/state/system';
 import { useMotion } from '@/theme/motion';
 import type { PageId } from '@/pages/registry';
 import { ModeSwitch } from './ModeSwitch';
+import { BrandMark } from './BrandMark';
 
 /* Search (opens Ctrl+K palette) · notifications · theme · account menu. */
 
@@ -63,6 +64,10 @@ export function TopBar({ onSearch, go }: { onSearch: () => void; go: (id: PageId
 
   return (
     <header className="topbar">
+      {/* phones: the sidebar is hidden, so the brand moves into the top bar */}
+      <span className="topbar__brand" aria-hidden>
+        <BrandMark size={40} />
+      </span>
       <button className="search-btn" onClick={onSearch} aria-keyshortcuts="Control+K">
         <Search size={18} aria-hidden />
         <span className="search-btn__text">{t('top.search')}</span>

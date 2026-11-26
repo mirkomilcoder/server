@@ -77,6 +77,11 @@ export class ProcSampler {
     const now = { ...p.counters, t: performance.now() };
     let cpuPct: number | null = null, rxBps: number | null = null, txBps: number | null = null;
 
+    // Two samples closer than 0.5 s give absurd rates (e.g. React StrictMode
+    // double effects): keep the previous counters and report no rate yet.
+    if (this.prev && now.t - this.prev.t < 500) {
+      return { cpuPct: null, cores: p.cores, load1: p.load1, memTotal: p.mem.total, memUsed: p.mem.used, swapUsed: p.mem.swapUsed, rxBps: null, txBps: null };
+    }
     if (this.prev) {
       const dTotal = now.cpuTotal - this.prev.cpuTotal;
       const dIdle = now.cpuIdle - this.prev.cpuIdle;

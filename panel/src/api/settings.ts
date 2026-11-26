@@ -9,7 +9,7 @@ import { runAction } from './run';
  * default instead of throwing away the whole file.
  */
 
-export const WIDGET_IDS = ['kpis', 'chart', 'bots', 'services', 'logs', 'security'] as const;
+export const WIDGET_IDS = ['hero', 'kpis', 'chart', 'quick', 'projects', 'activity', 'alerts'] as const;
 export type WidgetId = (typeof WIDGET_IDS)[number];
 
 export const ACCENT_PRESETS = ['#3B82F6', '#22D3EE', '#A78BFA', '#34D399', '#FB923C'] as const;

@@ -50,7 +50,8 @@ export function MetricsProvider({ children }: { children: ReactNode }) {
       try {
         const s = await sampler.current.sample();
         if (!alive) return;
-        setLatest(s);
+        // a sample without a rate (first one / too soon) must not blank existing values
+        setLatest((prev) => (s.cpuPct === null && prev ? prev : s));
         setError(null);
         if (s.cpuPct !== null) {
           const p: Point = {

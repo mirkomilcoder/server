@@ -3,6 +3,7 @@ import { MotionConfig } from 'framer-motion';
 import { SettingsProvider, useSettings } from '@/state/settings';
 import { SystemProvider } from '@/state/system';
 import { MetricsProvider } from '@/state/metrics';
+import { GuardianProvider } from '@/state/guardian';
 import { ToastProvider, useToast } from '@/state/toasts';
 import { I18nProvider, useT } from '@/i18n';
 import { useApplyTheme } from '@/theme/theme';
@@ -55,7 +56,9 @@ export function App() {
         <ToastProvider>
           <SystemProvider>
             <MetricsProvider>
-              <Root />
+              <GuardianProvider>
+                <Root />
+              </GuardianProvider>
             </MetricsProvider>
           </SystemProvider>
         </ToastProvider>

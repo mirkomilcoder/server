@@ -99,6 +99,14 @@ valid_cidr() {
 
 valid_yesno() { [[ "$1" == yes || "$1" == no ]]; }
 
+# Display name like "Mirkomil Host": 2–40 chars, no characters that could
+# break the CSS/INI/env files it is written into.
+valid_brand() {
+  # bracket expression: " \ < > { } ; ` $  (backslash is literal inside [...])
+  local re='["\<>{};`$]' nl=$'\n'
+  [[ ${#1} -ge 2 && ${#1} -le 40 && "$1" != *"$nl"* ]] && ! [[ "$1" =~ $re ]]
+}
+
 # Registrable domain like mirkomil-host.uz (lowercase, ≥2 labels, no wildcard).
 valid_domain() {
   [[ ${#1} -le 253 ]] && [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
@@ -243,8 +251,14 @@ cockpit_conf_apply() {
   before="$(cat "$conf" 2>/dev/null || true)"
   install_template "$MK_SRC/configs/cockpit/cockpit.conf.tmpl" "$conf"
   if [[ "$before" != "$(cat "$conf")" ]] && systemctl is-active -q cockpit.service; then
-    # drops open web sessions only; cockpit.socket keeps listening
-    run systemctl restart cockpit.service
+    if [[ "${MK_DEFER_COCKPIT_RESTART:-0}" == 1 ]]; then
+      # applied from the panel itself: restart a few seconds later so the
+      # request that triggered it can still be answered
+      run systemd-run --quiet --collect --on-active=8 --unit=mirkomil-cockpit-restart systemctl restart cockpit.service || true
+    else
+      # drops open web sessions only; cockpit.socket keeps listening
+      run systemctl restart cockpit.service
+    fi
   fi
   return 0
 }

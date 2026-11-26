@@ -29,3 +29,14 @@ def test_helper_rejects_unknown_verb_and_bad_args():
     assert bad_unit["ok"] is False and "invalid unit" in bad_unit["error"]
     not_allowed = handle_request(b'{"verb": "unit.restart", "args": {"unit": "sshd-keygen.service"}}', 0, {0})
     assert "not restartable" in not_allowed["error"]
+
+
+def test_helper_always_answers_even_on_unexpected_errors(monkeypatch):
+    from mirkomil import helper
+
+    def boom(_args):
+        raise RuntimeError("disk on fire")
+
+    monkeypatch.setitem(helper.VERBS, "test.boom", boom)
+    r = handle_request(b'{"verb": "test.boom"}', 0, {0})
+    assert r["ok"] is False and "disk on fire" in r["error"]

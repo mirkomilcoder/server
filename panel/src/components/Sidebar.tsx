@@ -4,6 +4,7 @@ import { ChevronDown, PanelLeftClose, PanelLeftOpen, Server } from 'lucide-react
 import { useT } from '@/i18n';
 import { useSettings } from '@/state/settings';
 import { useMotion } from '@/theme/motion';
+import { useBrand } from '@/state/guardian';
 import { PAGES, type NavGroup, type PageDef, type PageId } from '@/pages/registry';
 import { BrandMark } from './BrandMark';
 
@@ -20,6 +21,7 @@ export function Sidebar({ page, go }: Props) {
   const { t } = useT();
   const { settings, update } = useSettings();
   const m = useMotion();
+  const { brand, domain } = useBrand();
   const collapsed = settings.sidebarCollapsed;
   const serverPages = PAGES.filter((p) => p.group === 'server');
   const inServer = serverPages.some((p) => p.id === page);
@@ -57,8 +59,8 @@ export function Sidebar({ page, go }: Props) {
       <div className="brand">
         <BrandMark size={42} />
         <div className="brand__text">
-          <div className="brand__name">{t('app.name')}</div>
-          <div className="brand__host">{t('brand.tagline')}</div>
+          <div className="brand__name">{brand}</div>
+          <div className="brand__host">{domain}</div>
         </div>
       </div>
 
@@ -117,7 +119,7 @@ export function Sidebar({ page, go }: Props) {
           <path d="M0 60 L38 26 L58 40 L92 8 L122 34 L146 20 L200 54 L200 60 Z" fill="url(#peak)" />
           <path d="M0 60 L38 26 L58 40 L92 8 L122 34 L146 20 L200 54" fill="none" stroke="var(--accent)" strokeWidth="1.2" strokeOpacity=".8" />
         </svg>
-        <div className="brand-card__name">{t('app.name')}</div>
+        <div className="brand-card__name">{brand}</div>
         <div className="brand-card__tag">
           <span className="dot dot--success" /> {t('brand.footer')}
         </div>

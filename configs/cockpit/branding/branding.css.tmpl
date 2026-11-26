@@ -1,0 +1,212 @@
+/* Managed by mirkomil-server — edits are overwritten by install.sh
+ * Cockpit login page, restyled to match the panel. Rendered from
+ * configs/cockpit/branding/branding.css.tmpl with the name/domain from
+ * /etc/mirkomil/config.env (change them in the panel: Sozlamalar).
+ * Only local assets (logo, fonts) — no external URLs.
+ */
+
+@font-face {
+  font-family: 'MK Inter';
+  src: url("inter.woff2") format('woff2-variations');
+  font-weight: 300 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MK Display';
+  src: url("display.woff2") format('woff2-variations');
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+:root {
+  --mk-bg: #060913;
+  --mk-card: rgba(12, 19, 36, .82);
+  --mk-border: rgba(148, 163, 184, .16);
+  --mk-text: #E6EAF2;
+  --mk-muted: #A9B4C7;
+  --mk-accent: #3B82F6;
+  --mk-accent-2: #22D3EE;
+}
+
+html, body.login-pf {
+  min-height: 100%;
+}
+
+body.login-pf {
+  /* Cockpit lays the page out as a grid with areas; a centered column is simpler:
+     logo → card → footer line */
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  /* "safe": if the window is too short, keep the top (logo) reachable */
+  justify-content: safe center;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 32px 16px;
+  margin: 0;
+  color: var(--mk-text) !important;
+  font-family: 'MK Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  background:
+    radial-gradient(900px 520px at 85% -10%, rgba(59, 130, 246, .22), transparent 60%),
+    radial-gradient(700px 480px at -10% 110%, rgba(167, 139, 250, .16), transparent 60%),
+    linear-gradient(rgba(148, 163, 184, .045) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgba(148, 163, 184, .045) 1px, transparent 1px) 0 0 / 44px 44px,
+    var(--mk-bg) !important;
+  background-attachment: fixed !important;
+}
+
+/* ---- the card ---- */
+#main.container {
+  box-sizing: border-box;
+  order: 1;
+  flex-shrink: 0;
+  inline-size: min(440px, 100%);
+  margin: 0 !important;
+  padding: 40px 36px 32px !important;
+  border: 1px solid var(--mk-border);
+  border-radius: 24px;
+  background: var(--mk-card) !important;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 255, 255, .05);
+  backdrop-filter: blur(14px);
+}
+#main .container-body { padding: 0 !important; }
+
+/* ---- logo + name ---- */
+#badge {
+  order: 0;
+  flex-shrink: 0; /* column flex would squash it when the window is short */
+  grid-area: auto !important;
+  display: block !important;
+  inline-size: 72px !important;
+  block-size: 72px !important;
+  margin: 0 0 22px !important;
+  background-image: url("logo.svg") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  filter: drop-shadow(0 10px 24px rgba(59, 130, 246, .45));
+}
+
+#brand {
+  display: block !important;
+  margin: 0 0 26px !important;
+  text-align: center;
+  font-size: 0 !important;
+  line-height: 1.2;
+}
+#brand::before {
+  content: "{{MK_BRAND_NAME}}" !important;
+  display: block;
+  font: 700 28px/1.15 'MK Display', 'MK Inter', system-ui, sans-serif;
+  letter-spacing: -.02em;
+  color: var(--mk-text);
+}
+#brand::after {
+  content: "Server boshqaruv paneli · {{MK_DOMAIN}}";
+  display: block;
+  margin-top: 8px;
+  font: 400 14px/1.4 'MK Inter', system-ui, sans-serif;
+  color: var(--mk-muted);
+}
+
+/* ---- form ---- */
+#login .control-label,
+#conversation-prompt {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--mk-muted) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+#login .form-group { margin-bottom: 16px !important; }
+
+#login .form-control {
+  box-sizing: border-box;
+  inline-size: 100% !important;
+  block-size: 48px !important;
+  padding: 0 14px !important;
+  border: 1px solid rgba(148, 163, 184, .22) !important;
+  border-radius: 12px !important;
+  background: rgba(6, 10, 20, .7) !important;
+  color: var(--mk-text) !important;
+  font-size: 15px !important;
+  box-shadow: none !important;
+  transition: border-color .15s, box-shadow .15s;
+}
+#login .form-control:focus {
+  outline: none !important;
+  border-color: var(--mk-accent) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, .25) !important;
+}
+#login .password-with-toggle { position: relative; display: flex; gap: 8px; }
+#login-password-toggle {
+  flex: none;
+  inline-size: 48px;
+  block-size: 48px;
+  border: 1px solid rgba(148, 163, 184, .22) !important;
+  border-radius: 12px !important;
+  background: rgba(6, 10, 20, .7) !important;
+  color: var(--mk-muted) !important;
+}
+#login-password-toggle:hover { color: var(--mk-text) !important; border-color: rgba(148, 163, 184, .4) !important; }
+
+/* Uzbek labels (Cockpit ships no Uzbek translation). The original text stays
+   in the DOM for screen readers; only the visible text is replaced. */
+#user-group .control-label,
+#password-group .control-label,
+#login-button-text { font-size: 0 !important; }
+#user-group .control-label::after { content: "Foydalanuvchi nomi"; font-size: 13px; }
+#password-group .control-label::after { content: "Parol"; font-size: 13px; }
+#login-button-text::after { content: "Kirish"; font-size: 15px; }
+
+#login .pf-v6-c-check,
+#login .pf-v6-c-check__label { color: var(--mk-muted) !important; font-size: 13px !important; }
+
+#login-button {
+  inline-size: 100% !important;
+  block-size: 48px !important;
+  margin-top: 6px;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #60A5FA 0%, var(--mk-accent) 55%, #2563EB 100%) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  box-shadow: 0 12px 26px -12px rgba(59, 130, 246, .9) !important;
+  cursor: pointer;
+  transition: filter .15s, transform .15s;
+}
+#login-button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+#login-button:active { transform: none; }
+
+/* errors / info */
+#error-group, #info-group, #banner {
+  border-radius: 12px !important;
+  background: rgba(248, 113, 113, .1) !important;
+  border: 1px solid rgba(248, 113, 113, .3) !important;
+  color: #FCA5A5 !important;
+}
+#info-group { background: rgba(147, 197, 253, .1) !important; border-color: rgba(147, 197, 253, .3) !important; color: #BFDBFE !important; }
+
+/* "Other options" (log in to another host) is disabled by LoginTo=false */
+#option-group, #server-group { display: none !important; }
+
+.login-note, #login-note {
+  color: var(--mk-muted) !important;
+  font-size: 12.5px !important;
+  text-align: center;
+}
+
+/* small footer line under the card */
+body.login-pf::after {
+  content: "Himoyalangan ulanish · faqat ruxsat etilgan foydalanuvchilar";
+  order: 2;
+  display: block;
+  margin: 22px 0 0;
+  text-align: center;
+  color: rgba(169, 180, 199, .55);
+  font: 400 12px 'MK Inter', system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #login-button { transition: none; }
+}

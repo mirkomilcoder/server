@@ -117,3 +117,14 @@ MK_B="2"
   run load_env_file "$f"
   [ "$status" -eq 0 ]
 }
+
+@test "valid_brand allows names, rejects characters that break CSS/INI/env" {
+  valid_brand "Mirkomil Host"
+  valid_brand "O'zbek Server-1"
+  run valid_brand "A";                 [ "$status" -ne 0 ]
+  run valid_brand 'Bad"Name';          [ "$status" -ne 0 ]
+  run valid_brand 'x}{body';           [ "$status" -ne 0 ]
+  run valid_brand 'a\b';               [ "$status" -ne 0 ]
+  run valid_brand '$(id)';             [ "$status" -ne 0 ]
+  run valid_brand "$(printf 'a%.0s' {1..41})"; [ "$status" -ne 0 ]
+}

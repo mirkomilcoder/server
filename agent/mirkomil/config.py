@@ -52,6 +52,7 @@ class Thresholds:
 class Config:
     hostname: str = "server"
     domain: str = "mirkomil-host.uz"
+    brand: str = "Mirkomil Host"
     admin_user: str = ""
     telegram_token: str = ""
     telegram_chat_id: str = ""
@@ -64,6 +65,19 @@ class Config:
         return bool(self.telegram_token and self.telegram_chat_id)
 
 
+# Same rules as the installer (installer/lib/common.sh valid_brand / valid_domain).
+BRAND_RE = re.compile(r'^[^"\\<>{};`$\x00-\x1f\x7f]{2,40}$')
+DOMAIN_RE = re.compile(r"^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
+
+
+def valid_brand(v: str) -> bool:
+    return bool(BRAND_RE.match(v)) and v.strip() == v
+
+
+def valid_domain(v: str) -> bool:
+    return len(v) <= 253 and bool(DOMAIN_RE.match(v))
+
+
 def load(etc: Path = ETC) -> Config:
     env = parse_env_file(etc / "config.env")
     # Guardian's own secrets file (root:mirkomil 0640) — it can't read secrets.env.
@@ -71,6 +85,7 @@ def load(etc: Path = ETC) -> Config:
     cfg = Config(
         hostname=env.get("MK_HOSTNAME", "server"),
         domain=env.get("MK_DOMAIN", "mirkomil-host.uz"),
+        brand=env.get("MK_BRAND_NAME", "Mirkomil Host"),
         admin_user=env.get("MK_ADMIN_USER", ""),
         telegram_chat_id=env.get("TELEGRAM_CHAT_ID", ""),
         telegram_token=sec.get("TELEGRAM_BOT_TOKEN", "") if env.get("MK_TELEGRAM", "no") == "yes" else "",

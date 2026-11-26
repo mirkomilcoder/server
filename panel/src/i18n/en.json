@@ -1,5 +1,5 @@
 {
-  "app.name": "Mirkomil Panel",
+  "app.name": "Mirkomil Host",
   "nav.section.main": "MAIN",
   "nav.dashboard": "Dashboard",
   "nav.bots": "Bots",
@@ -325,5 +325,16 @@
   "sec.rec.none": "Everything is configured well — no recommendations",
   "sec.good": "Well protected",
   "sec.fair": "Could be better",
-  "sec.poor": "At risk"
+  "sec.poor": "At risk",
+  "identity.title": "Server identity",
+  "identity.intro": "The name and domain are used on the login page, panel, browser title and Telegram alerts. Changing them updates everything.",
+  "identity.name": "Server / hosting name",
+  "identity.domain": "Hosting domain",
+  "identity.domainHint": "Panel: panel.{d} · apps: <name>.{d}",
+  "identity.save": "Save and apply",
+  "identity.saving": "Applying…",
+  "identity.saved": "Saved. The login page updates — you will need to log in again in about 10 seconds.",
+  "identity.invalidName": "Name: 2–40 characters; no \" \\ < > { } ; ` $",
+  "identity.invalidDomain": "Invalid domain (e.g. mirkomil-host.uz)",
+  "identity.adminOnly": "Only an administrator can change this"
 }

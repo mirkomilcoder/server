@@ -32,6 +32,8 @@ export interface GuardianStatus {
   ip?: string | null;
   tailscale_ip?: string | null;
   os?: string;
+  brand?: string;
+  domain?: string;
 }
 
 export interface GuardianEvent {
@@ -97,6 +99,7 @@ export const guardian = {
     get<{ range: Range; series: Record<string, [number, number][]> }>('/v1/history', { range, metrics: metrics.join(',') }),
   events: (limit = 100) => get<{ events: GuardianEvent[] }>('/v1/events', { limit: String(limit) }),
   rules: () => get<RulesState>('/v1/rules'),
+  setIdentity: (brand: string, domain: string) => post<{ brand: string; domain: string }>('/v1/identity', { brand, domain }),
   setMode: (mode: RulesState['mode']) => post<RulesState>('/v1/rules', { mode }),
   setRule: (rule: string, enabled: boolean) => post<RulesState>('/v1/rules', { rule, enabled }),
 };

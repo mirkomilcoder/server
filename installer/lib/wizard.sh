@@ -79,6 +79,8 @@ config_defaults() {
   : "${MK_TELEGRAM:=no}"
   # Hosting domain: panel.<domain>, <app>.<domain>. Used from M6 (Cloudflare Tunnel).
   : "${MK_DOMAIN:=mirkomil-host.uz}"
+  # Display name used on the login page, panel, browser title and alerts.
+  : "${MK_BRAND_NAME:=Mirkomil Host}"
 }
 
 run_wizard() {
@@ -96,6 +98,7 @@ run_wizard() {
   ask_input MK_ADMIN_USER "Administrator foydalanuvchi (Linux login):" "$MK_ADMIN_USER" valid_username
   ask_input MK_TIMEZONE "Vaqt mintaqasi:" "$MK_TIMEZONE" valid_timezone
   ask_input MK_LAN_CIDR "Panelga ruxsat beriladigan lokal tarmoq (yoki 'none'):" "$MK_LAN_CIDR" _valid_lan
+  ask_input MK_BRAND_NAME "Server/hosting nomi (kirish sahifasi va panelda ko'rinadi):" "$MK_BRAND_NAME" valid_brand
   ask_input MK_DOMAIN "Hosting domeni (panel.<domen>, <ilova>.<domen>):" "$MK_DOMAIN" valid_domain
 
   ask_yesno MK_TAILSCALE "Tailscale o'rnatilsinmi? (serverga istalgan joydan xavfsiz kirish, port ochmasdan)" "$MK_TAILSCALE"
@@ -126,6 +129,7 @@ validate_config() {
   valid_timezone "$MK_TIMEZONE"       || die "MK_TIMEZONE noto'g'ri: '$MK_TIMEZONE'"
   _valid_lan "$MK_LAN_CIDR"           || die "MK_LAN_CIDR noto'g'ri: '$MK_LAN_CIDR'"
   valid_domain "$MK_DOMAIN"           || die "MK_DOMAIN noto'g'ri: '$MK_DOMAIN'"
+  valid_brand "$MK_BRAND_NAME"        || die "MK_BRAND_NAME noto'g'ri: '$MK_BRAND_NAME' (2–40 belgi, \" \ < > { } ; \` \$ mumkin emas)"
   valid_yesno "$MK_TAILSCALE"         || die "MK_TAILSCALE yes yoki no bo'lishi kerak"
   valid_yesno "$MK_TELEGRAM"          || die "MK_TELEGRAM yes yoki no bo'lishi kerak"
   [[ "$MK_SSH_PASSWORD_AUTH" =~ ^(auto|keep|disable)$ ]] || die "MK_SSH_PASSWORD_AUTH: auto | keep | disable"
@@ -141,7 +145,7 @@ save_config() {
       "$MK_MANAGED_HEADER" "$MK_SECRETS" >"$MK_CONFIG"
   fi
   local k
-  for k in MK_HOSTNAME MK_ADMIN_USER MK_TIMEZONE MK_LAN_CIDR MK_DOMAIN MK_TAILSCALE MK_SSH_PASSWORD_AUTH MK_TELEGRAM; do
+  for k in MK_HOSTNAME MK_ADMIN_USER MK_TIMEZONE MK_LAN_CIDR MK_DOMAIN MK_BRAND_NAME MK_TAILSCALE MK_SSH_PASSWORD_AUTH MK_TELEGRAM; do
     set_env_key "$MK_CONFIG" "$k" "${!k}"
   done
   chmod 0644 "$MK_CONFIG"

@@ -44,6 +44,8 @@ class GuardianState:
     def snapshot(self) -> dict[str, Any]:
         return {
             "hostname": self.cfg.hostname,
+            "brand": self.cfg.brand,
+            "domain": self.cfg.domain,
             "time": int(time.time()),
             "started": self.started,
             "uptime": c.uptime_seconds(),
@@ -68,7 +70,7 @@ class GuardianState:
             self.db.add_event("action", sev, title, rec.get("detail", ""), check_id=rec["rule"])
             if rec["result"] != "dryrun" and self.cfg.telegram_enabled:
                 telegram.send(self.cfg.telegram_token, self.cfg.telegram_chat_id,
-                              telegram.format_alert(self.cfg.hostname, sev if sev != "info" else "ok", title, rec.get("detail", "")))
+                              telegram.format_alert(self.cfg.brand, sev if sev != "info" else "ok", title, rec.get("detail", "")))
 
     # ---------- collection ----------
 
@@ -132,7 +134,7 @@ class GuardianState:
             sev = r.severity if kind == "problem" else "ok"
             title = r.title if kind == "problem" else f"Tuzaldi: {r.title}"
             telegram.send(self.cfg.telegram_token, self.cfg.telegram_chat_id,
-                          telegram.format_alert(self.cfg.hostname, sev, title, r.detail if kind == "problem" else ""))
+                          telegram.format_alert(self.cfg.brand, sev, title, r.detail if kind == "problem" else ""))
 
 
 async def run_loop(state: GuardianState, stop: asyncio.Event) -> None:

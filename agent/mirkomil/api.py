@@ -145,6 +145,28 @@ def build_api(state: "GuardianState") -> Api:  # noqa: F821 (forward ref, see gu
             raise HttpError(400, "limit/before must be numbers")
         return {"events": state.db.events(limit, before)}
 
+    @api.route("POST", "/v1/identity", role="admin")
+    async def identity(p: Peer, _q: dict[str, str], b: Any) -> Any:
+        """Rename the server / change the hosting domain everywhere (login page, panel, alerts)."""
+        from .config import valid_brand, valid_domain
+        from . import helper
+        if not isinstance(b, dict):
+            raise HttpError(400, "JSON object expected")
+        brand, domain = str(b.get("brand", "")).strip(), str(b.get("domain", "")).strip().lower()
+        if not valid_brand(brand):
+            raise HttpError(400, "brand: 2–40 belgi; qo'shtirnoq, \\ < > { } ; ` $ belgilari mumkin emas")
+        if not valid_domain(domain):
+            raise HttpError(400, "domain: masalan mirkomil-host.uz")
+        loop = asyncio.get_running_loop()
+        try:
+            await loop.run_in_executor(None, lambda: helper.call("identity.apply", {"brand": brand, "domain": domain}, timeout=300))
+        except helper.VerbError as e:
+            raise HttpError(500, f"qo'llab bo'lmadi: {e}")
+        old = (state.cfg.brand, state.cfg.domain)
+        state.cfg.brand, state.cfg.domain = brand, domain
+        state.db.add_event("action", "info", f"Server nomi/domeni o'zgartirildi: {old[0]} → {brand}, {old[1]} → {domain}", actor=p.user)
+        return {"brand": brand, "domain": domain}
+
     @api.route("GET", "/v1/rules")
     async def rules_get(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
         return {"mode": state.rules.mode(), "rules": state.rules.describe()}

@@ -54,6 +54,7 @@ uninstall_main() {
   rm -rf /usr/share/cockpit/mirkomil
   systemctl daemon-reload >>"$MK_LOG" 2>&1 || true
   info "Guardian tarixi saqlandi: /var/lib/mirkomil/guardian (kerak bo'lmasa o'chiring)"
+  rm -f /usr/share/cockpit/branding/ubuntu/inter.woff2 /usr/share/cockpit/branding/ubuntu/display.woff2
   # restore Cockpit's own branding files (see 60-panel.sh: dpkg-divert)
   for f in branding.css logo.svg; do
     if dpkg-divert --list "/usr/share/cockpit/branding/ubuntu/$f" | grep -q mirkomil; then

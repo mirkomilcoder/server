@@ -1,9 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Mirkomil Server logo: server stack on the accent tile (matches the panel). -->
-  <rect width="64" height="64" rx="16" fill="#22D3EE"/>
-  <g fill="none" stroke="#04212A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="16" y="16" width="32" height="13" rx="3.5"/>
-    <rect x="16" y="35" width="32" height="13" rx="3.5"/>
-    <path d="M22 22.5h.01M22 41.5h.01"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Mirkomil Host logo: three stacked layers on a blue gradient tile (same mark as the panel). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7AB1FA"/>
+      <stop offset="1" stop-color="#2D4FC4"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="13" fill="url(#bg)"/>
+  <g fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round">
+    <path d="M24 11 L37 17.5 L24 24 L11 17.5 Z" fill="rgba(255,255,255,.22)"/>
+    <path d="M11 24 L24 30.5 L37 24" opacity=".85"/>
+    <path d="M11 30.5 L24 37 L37 30.5" opacity=".6"/>
   </g>
 </svg>

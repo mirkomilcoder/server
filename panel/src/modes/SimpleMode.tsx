@@ -3,6 +3,7 @@ import { ArrowLeft, Bot, Box, Download, FileText, Globe, Power, Server, ShieldCh
 import { formatDuration, useT, type TranslationKey } from '@/i18n';
 import { useSystem } from '@/state/system';
 import { useSettings } from '@/state/settings';
+import { useBrand } from '@/state/guardian';
 import { useMetrics } from '@/state/metrics';
 import { useMotion } from '@/theme/motion';
 import { ModeSwitch } from '@/components/ModeSwitch';
@@ -71,6 +72,7 @@ export default function SimpleMode({ page, go }: ModeProps) {
   const sys = useSystem();
   const m = useMotion();
   const { update } = useSettings();
+  const { brand } = useBrand();
   const home = page === 'dashboard';
 
   return (
@@ -78,7 +80,7 @@ export default function SimpleMode({ page, go }: ModeProps) {
       <header className="simple__head">
         <div>
           <div className="simple__eyebrow">
-            {t('app.name')} · {sys.hostname}
+            {brand} · {sys.hostname}
           </div>
           <h1 className="simple__title">{t('top.greeting', { name: sys.displayName })}</h1>
         </div>

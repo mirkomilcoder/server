@@ -26,6 +26,11 @@ module_run() {
   ((mem_mb >= 1800)) || warn "RAM kam: ${mem_mb} MB (tavsiya: 4 GB+). Davom etamiz."
   ok "RAM: ${mem_mb} MB"
 
+  if [[ "${MK_PREFLIGHT_QUICK:-0}" == 1 ]]; then
+    ok "Tezkor rejim (panel orqali sozlamalarni qo'llash)"
+    return 0
+  fi
+
   if ! curl -fsS --max-time 10 -o /dev/null https://archive.ubuntu.com/ubuntu/ 2>>"$MK_LOG" &&
      ! curl -fsS --max-time 10 -o /dev/null https://security.ubuntu.com/ubuntu/ 2>>"$MK_LOG"; then
     die "Internet yoki DNS ishlamayapti (archive.ubuntu.com ga ulanib bo'lmadi)."

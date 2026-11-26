@@ -46,7 +46,15 @@ module_run() {
     if ! dpkg-divert --list "$BRANDING_DIR/$f" | grep -q mirkomil; then
       run dpkg-divert --package mirkomil-server --add --rename --divert "$BRANDING_DIR/$f.distrib" "$BRANDING_DIR/$f"
     fi
-    install_file "$MK_SRC/configs/cockpit/branding/$f" "$BRANDING_DIR/$f"
   done
+  # name + domain come from config.env (editable in the panel)
+  install_template "$MK_SRC/configs/cockpit/branding/branding.css.tmpl" "$BRANDING_DIR/branding.css"
+  install_file "$MK_SRC/configs/cockpit/branding/logo.svg" "$BRANDING_DIR/logo.svg"
+  # the panel's own fonts for the login page (new files, not owned by any package)
+  local inter display
+  inter="$(ls "$PANEL_DIR"/assets/inter-latin-wght-normal-*.woff2 2>/dev/null | head -n1 || true)"
+  display="$(ls "$PANEL_DIR"/assets/space-grotesk-latin-wght-normal-*.woff2 2>/dev/null | head -n1 || true)"
+  if [[ -n "$inter" ]]; then install_file "$inter" "$BRANDING_DIR/inter.woff2"; fi
+  if [[ -n "$display" ]]; then install_file "$display" "$BRANDING_DIR/display.woff2"; fi
   ok "Kirish sahifasi brendlangan (asl fayllar: *.distrib)"
 }

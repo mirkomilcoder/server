@@ -163,7 +163,7 @@ function http(): ReturnType<Cockpit['http']> {
   const routes: Record<string, (p: Record<string, string>) => unknown> = {
     '/v1/me': () => ({ user: 'home-server', role: 'admin', groups: ['sudo'] }),
     '/v1/status': () => ({
-      hostname: 'home-server', time: now(), uptime: 1054321, score: 92, status: 'warn', telegram: true, ip: '192.168.1.20', tailscale_ip: '100.101.102.103', os: 'Ubuntu 26.04.1 LTS',
+      hostname: 'home-server', brand: 'Mirkomil Host', domain: 'mirkomil-host.uz', time: now(), uptime: 1054321, score: 92, status: 'warn', telegram: true, ip: '192.168.1.20', tailscale_ip: '100.101.102.103', os: 'Ubuntu 26.04.1 LTS',
       metrics: { cpu: 23, mem: 39, disk: 41, load1: 0.42, temp: null },
       checks: [
         { id: 'disk', severity: 'ok', title: 'Disk 41% band', detail: '' },
@@ -179,6 +179,7 @@ function http(): ReturnType<Cockpit['http']> {
       return { range: p.range, series: { cpu: series(span, 25, 12), mem: series(span, 40, 4) } };
     },
     '/v1/rules': () => rulesState,
+    '/v1/identity': () => ({ brand: 'Mirkomil Host', domain: 'mirkomil-host.uz' }),
     '/v1/events': () => ({
       events: [
         { id: 4, ts: now() - 600, kind: 'problem', severity: 'warn', title: '4 ta xavfsizlik yangilanishi kutmoqda', detail: '', actor: 'guardian' },

@@ -44,6 +44,15 @@ export function useGuardian() {
   return ctx;
 }
 
+export const DEFAULT_BRAND = 'Mirkomil Host';
+export const DEFAULT_DOMAIN = 'mirkomil-host.uz';
+
+/** Server display name + hosting domain (edited in Settings → applies everywhere). */
+export function useBrand() {
+  const { status } = useGuardian();
+  return { brand: status?.brand ?? DEFAULT_BRAND, domain: status?.domain ?? DEFAULT_DOMAIN };
+}
+
 /** Problems worth a badge: current warn/crit checks. */
 export function useAlerts() {
   const { status } = useGuardian();

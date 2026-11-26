@@ -3,7 +3,7 @@ import { MotionConfig } from 'framer-motion';
 import { SettingsProvider, useSettings } from '@/state/settings';
 import { SystemProvider } from '@/state/system';
 import { MetricsProvider } from '@/state/metrics';
-import { GuardianProvider } from '@/state/guardian';
+import { GuardianProvider, useBrand } from '@/state/guardian';
 import { ToastProvider, useToast } from '@/state/toasts';
 import { I18nProvider, useT } from '@/i18n';
 import { useApplyTheme } from '@/theme/theme';
@@ -18,6 +18,10 @@ function Root() {
   const toast = useToast();
   const { page, go } = useRoute(settings.startPage);
   const [palette, setPalette] = useState(false);
+  const { brand } = useBrand();
+  useEffect(() => {
+    document.title = brand;
+  }, [brand]);
   useApplyTheme(settings);
 
   // Ctrl+K / Cmd+K opens the command palette from anywhere

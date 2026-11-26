@@ -5,6 +5,7 @@ import { ACCENT_PRESETS, type Settings } from '@/api/settings';
 import { MODES } from '@/modes';
 import { Card, MotionGrid } from '@/widgets/Card';
 import { PAGES } from './registry';
+import { IdentityCard } from '@/widgets/IdentityCard';
 import type { PageProps } from './registry';
 
 /*
@@ -50,6 +51,7 @@ export default function SettingsPage(_props: PageProps) {
         <h1>{t('settings.title')}</h1>
       </div>
       <MotionGrid className="form-grid">
+        <IdentityCard />
         <Card title={t('settings.mode')}>
           <Choices k="mode" options={MODES.map((m) => ({ value: m.id, label: t(m.label) }))} />
         </Card>

@@ -1,5 +1,5 @@
 {
-  "app.name": "Mirkomil Panel",
+  "app.name": "Mirkomil Host",
   "nav.section.main": "ASOSIY",
   "nav.dashboard": "Boshqaruv paneli",
   "nav.bots": "Botlar",
@@ -325,5 +325,16 @@
   "sec.rec.none": "Hammasi to'g'ri sozlangan — tavsiya yo'q",
   "sec.good": "Yaxshi himoyalangan",
   "sec.fair": "Yaxshilash mumkin",
-  "sec.poor": "Xavf ostida"
+  "sec.poor": "Xavf ostida",
+  "identity.title": "Server identifikatsiyasi",
+  "identity.intro": "Nom va domen kirish sahifasi, panel, brauzer sarlavhasi va Telegram xabarlarida ishlatiladi. O'zgartirsangiz — hamma joyda o'zgaradi.",
+  "identity.name": "Server / hosting nomi",
+  "identity.domain": "Hosting domeni",
+  "identity.domainHint": "Panel: panel.{d} · ilovalar: <nom>.{d}",
+  "identity.save": "Saqlash va qo'llash",
+  "identity.saving": "Qo'llanmoqda…",
+  "identity.saved": "Saqlandi. Kirish sahifasi yangilanadi — 10 soniyadan keyin qayta kirishingiz kerak bo'ladi.",
+  "identity.invalidName": "Nom 2–40 belgi bo'lsin; \" \\ < > { } ; ` $ belgilari mumkin emas",
+  "identity.invalidDomain": "Domen noto'g'ri (masalan: mirkomil-host.uz)",
+  "identity.adminOnly": "Faqat administrator o'zgartira oladi"
 }

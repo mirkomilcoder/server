@@ -132,7 +132,40 @@ def v_system_reboot(a: dict[str, Any]) -> Any:
     return "reboot scheduled in 1 minute"
 
 
+INSTALLER = "/opt/mirkomil/src/installer/main.sh"
+
+
+def run_installer_job(name: str, only: str, env: dict[str, str], timeout: int = 300) -> str:
+    """
+    Run the installer (fixed path, fixed arguments) as a one-off systemd unit.
+
+    The helper itself is sandboxed (ProtectSystem=full: /etc and /usr are
+    read-only), so it cannot rewrite configuration directly. Instead systemd
+    starts the installer — the single place that writes managed files — with
+    validated values passed as environment variables (env wins over
+    config.env in the installer, and save_config() persists them).
+    """
+    argv = ["systemd-run", f"--unit=mirkomil-job-{name}", "--wait", "--pipe", "--collect", "--quiet",
+            "--setenv=MK_NONINTERACTIVE=1", "--setenv=MK_PREFLIGHT_QUICK=1", "--setenv=MK_DEFER_COCKPIT_RESTART=1"]
+    argv += [f"--setenv={k}={v}" for k, v in env.items()]
+    argv += [INSTALLER, "--repair", "--only", only]
+    p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+    if p.returncode != 0:
+        raise VerbError((p.stderr or p.stdout).strip()[-800:] or f"installer exit {p.returncode}")
+    return "applied"
+
+
+def v_identity_apply(a: dict[str, Any]) -> Any:
+    from .config import valid_brand, valid_domain
+    brand, domain = str(a.get("brand", "")), str(a.get("domain", ""))
+    if not valid_brand(brand) or not valid_domain(domain):
+        raise VerbError("invalid brand or domain")
+    # 50: cockpit.conf (LoginTitle) · 60: login page branding
+    return run_installer_job("identity", "50,60", {"MK_BRAND_NAME": brand, "MK_DOMAIN": domain})
+
+
 VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "identity.apply": v_identity_apply,
     "apt.clean": v_apt_clean,
     "journal.vacuum": v_journal_vacuum,
     "docker.prune": v_docker_prune,
@@ -175,6 +208,9 @@ def handle_request(raw: bytes, uid: int, allowed: set[int]) -> dict[str, Any]:
     except (VerbError, subprocess.TimeoutExpired, FileNotFoundError) as e:
         log.warning("verb %s failed (uid %d): %s", verb, uid, e)
         return {"ok": False, "error": str(e)}
+    except Exception as e:  # always answer: a dropped connection hides the real cause
+        log.exception("verb %s crashed (uid %d)", verb, uid)
+        return {"ok": False, "error": f"internal error: {type(e).__name__}: {e}"[:500]}
 
 
 class _Handler(socketserver.StreamRequestHandler):

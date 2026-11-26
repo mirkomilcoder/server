@@ -1,5 +1,5 @@
 {
-  "app.name": "Mirkomil Panel",
+  "app.name": "Mirkomil Host",
   "nav.section.main": "ОСНОВНОЕ",
   "nav.dashboard": "Панель управления",
   "nav.bots": "Боты",
@@ -325,5 +325,16 @@
   "sec.rec.none": "Всё настроено верно — рекомендаций нет",
   "sec.good": "Хорошо защищён",
   "sec.fair": "Можно улучшить",
-  "sec.poor": "Под угрозой"
+  "sec.poor": "Под угрозой",
+  "identity.title": "Идентификация сервера",
+  "identity.intro": "Имя и домен используются на странице входа, в панели, заголовке и уведомлениях Telegram. Изменение применяется везде.",
+  "identity.name": "Имя сервера / хостинга",
+  "identity.domain": "Домен хостинга",
+  "identity.domainHint": "Панель: panel.{d} · приложения: <имя>.{d}",
+  "identity.save": "Сохранить и применить",
+  "identity.saving": "Применяется…",
+  "identity.saved": "Сохранено. Страница входа обновится — через 10 секунд нужно будет войти снова.",
+  "identity.invalidName": "Имя 2–40 символов; нельзя \" \\ < > { } ; ` $",
+  "identity.invalidDomain": "Неверный домен (например: mirkomil-host.uz)",
+  "identity.adminOnly": "Изменять может только администратор"
 }

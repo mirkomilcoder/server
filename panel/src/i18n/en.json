@@ -729,5 +729,6 @@
   "wizard.rootDir": "Folder (optional)",
   "wizard.rootDirAuto": "auto — repo root or the only project folder",
   "wizard.rootDirHint": "If the project lives in a subfolder (e.g. bot or apps/web). Leave empty to find it automatically.",
-  "wizard.rootDirBad": "Invalid folder: letters, digits, . _ - and / (no \"..\")"
+  "wizard.rootDirBad": "Invalid folder: letters, digits, . _ - and / (no \"..\")",
+  "update.chunkTitle": "The panel was updated"
 }

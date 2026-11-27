@@ -23,9 +23,26 @@ module_run() {
   rm -rf "$stage"
   mkdir -p "$stage"
   cp -a "$dist/." "$stage/"
+  # Cockpit keeps the panel page for the whole login session, so an open session still asks for
+  # the previous build's lazy chunks after an update: carry those over (one generation only —
+  # .assets-list names a build's own files, so older ones are dropped on the next update).
+  (cd "$dist/assets" && find . -maxdepth 1 -type f -printf '%f\n' | sort) >"$stage/.assets-list"
+  local f prev=""
+  if [[ -f "$PANEL_DIR/.assets-list" ]]; then
+    prev="$(cat "$PANEL_DIR/.assets-list")"
+  elif [[ -d "$PANEL_DIR/assets" ]]; then
+    prev="$(cd "$PANEL_DIR/assets" && find . -maxdepth 1 -type f -printf '%f\n')"  # installed before lists existed
+  fi
+  while IFS= read -r f; do
+    [[ "$f" =~ ^[A-Za-z0-9._-]+$ && -f "$PANEL_DIR/assets/$f" && ! -e "$stage/assets/$f" ]] \
+      && cp -a "$PANEL_DIR/assets/$f" "$stage/assets/$f"
+  done <<<"$prev"
   chown -R root:root "$stage"
   find "$stage" -type d -exec chmod 0755 {} + -o -type f -exec chmod 0644 {} +
-  if [[ -d "$PANEL_DIR" ]] && diff -rq "$stage" "$PANEL_DIR" >/dev/null 2>&1; then
+  # unchanged = every file of this build is already installed as-is (files kept from the
+  # previous build don't count, so a re-run keeps them instead of reinstalling)
+  if [[ -d "$PANEL_DIR" ]] && cmp -s "$stage/.assets-list" "$PANEL_DIR/.assets-list" \
+     && ! { diff -rq "$dist" "$PANEL_DIR" 2>&1 || true; } | grep -qv "^Only in $PANEL_DIR"; then
     rm -rf "$stage"
   else
     rm -rf "$PANEL_DIR.old"

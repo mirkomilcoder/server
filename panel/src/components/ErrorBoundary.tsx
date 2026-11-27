@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { cockpit } from '@/api/cockpit';
 import { useT } from '@/i18n';
 
 /*
@@ -38,8 +39,23 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
+/** A lazy page chunk from an older build that is no longer on the server (panel was updated). */
+const STALE_CHUNK_RE = /dynamically imported module|Importing a module script failed|error loading dynamically imported module/i;
+
 function ErrorCard({ error, onRetry }: { error: Error; onRetry: () => void }) {
   const { t } = useT();
+  if (STALE_CHUNK_RE.test(error.message)) {
+    return (
+      <div className="card" role="alert">
+        <div className="empty">
+          <div className="empty__icon"><RefreshCw size={28} strokeWidth={1.8} /></div>
+          <h2>{t('update.chunkTitle')}</h2>
+          <p>{t('update.ready')}</p>
+          <button className="btn btn--accent" onClick={() => cockpit().logout(true)}>{t('update.relogin')}</button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="card" role="alert">
       <div className="empty">

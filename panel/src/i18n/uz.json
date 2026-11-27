@@ -729,5 +729,6 @@
   "wizard.rootDir": "Papka (ixtiyoriy)",
   "wizard.rootDirAuto": "avto — repo ildizi yoki yagona loyiha papkasi",
   "wizard.rootDirHint": "Loyiha repo ichidagi papkada bo'lsa (masalan bot yoki apps/web). Bo'sh qoldirsangiz o'zi topadi.",
-  "wizard.rootDirBad": "Papka nomi noto'g'ri: harf, raqam, . _ - va / (\"..\" mumkin emas)"
+  "wizard.rootDirBad": "Papka nomi noto'g'ri: harf, raqam, . _ - va / (\"..\" mumkin emas)",
+  "update.chunkTitle": "Panel yangilandi"
 }

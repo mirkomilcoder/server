@@ -80,13 +80,14 @@ export async function list(path: string, asAdmin: boolean): Promise<Entry[]> {
 }
 
 export async function search(path: string, q: string, asAdmin: boolean): Promise<Entry[]> {
-  // find exits 1 on unreadable subfolders but still prints what it found
+  // find exits 1 when some subfolder is unreadable but still prints what it found: keep that
+  let seen = '';
   try {
-    return parseFind(await runAction('files.search', { path, q }, { asAdmin }));
+    return parseFind(await runAction('files.search', { path, q }, { asAdmin, onOutput: (chunk) => { seen += chunk; } }));
   } catch (e) {
-    const out = (e as { details?: string }).details;
-    if (out === undefined) throw e;
-    return [];
+    if ((e as { exitStatus?: number | null }).exitStatus === 1 && seen) return parseFind(seen);
+    if ((e as { exitStatus?: number | null }).exitStatus === 1) return [];
+    throw e;
   }
 }
 

@@ -39,6 +39,11 @@ export interface ActionDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
   /** Run in a pseudo-terminal (interactive prompts, answered through RunOptions.onOutput). */
   pty?: boolean;
   /**
+   * Output contains NUL bytes (e.g. `find -printf …\0`): Cockpit's text channels drop such
+   * output, so it travels as bytes and is decoded as UTF-8 by runAction.
+   */
+  binary?: boolean;
+  /**
    * May run as root when the caller asks (file manager "admin mode"); needs
    * Cockpit administrative access and is then written to the activity log.
    */
@@ -185,12 +190,12 @@ export const actions = {
 
   /** One directory level, NUL-separated: type, target type, size, mtime, mode, owner, group, link, name. */
   'files.list': define({
-    schema: z.object({ path: absPath }).strict(), elevatable: true,
+    schema: z.object({ path: absPath }).strict(), elevatable: true, binary: true,
     argv: (p) => ['find', p.path, '-mindepth', '1', '-maxdepth', '1', '-printf', '%y\\0%Y\\0%s\\0%T@\\0%m\\0%u\\0%g\\0%l\\0%f\\0'],
   }),
   /** Recursive name search (case-insensitive, same filesystem, depth ≤ 8); names relative to path. */
   'files.search': define({
-    schema: z.object({ path: absPath, q: z.string().min(1).max(100).regex(/^[^\u0000-\u001f/]+$/) }).strict(), elevatable: true,
+    schema: z.object({ path: absPath, q: z.string().min(1).max(100).regex(/^[^\u0000-\u001f/]+$/) }).strict(), elevatable: true, binary: true,
     argv: (p) => ['find', p.path, '-xdev', '-mindepth', '1', '-maxdepth', '8', '-iname', `*${p.q.replace(/[*?[\]\\]/g, '\\$&')}*`,
       '-printf', '%y\\0%Y\\0%s\\0%T@\\0%m\\0%u\\0%g\\0%l\\0%P\\0'],
   }),

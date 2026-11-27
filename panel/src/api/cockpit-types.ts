@@ -29,6 +29,8 @@ export interface CockpitSpawnOptions {
   environ?: string[];
   directory?: string;
   pty?: boolean;
+  /** Output as bytes (Uint8Array). Text channels drop output that contains NUL bytes. */
+  binary?: boolean;
 }
 
 /** A spawned process: a Promise of stdout plus streaming helpers. */

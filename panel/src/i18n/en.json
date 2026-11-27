@@ -702,5 +702,7 @@
   "env.bulkDup": "{key} appears twice",
   "env.err.bad": "Key: letters, digits and _, not starting with a digit",
   "env.err.port": "PORT is set by the server",
-  "env.err.exists": "This key exists — edit it with the pencil"
+  "env.err.exists": "This key exists — edit it with the pencil",
+  "update.ready": "A new panel version was installed. Sign in again to use it.",
+  "update.relogin": "Sign in again"
 }

@@ -702,5 +702,7 @@
   "env.bulkDup": "{key} ikki marta yozilgan",
   "env.err.bad": "Kalit: lotin harfi yoki _ bilan boshlansin (A-Z, 0-9, _)",
   "env.err.port": "PORT ni server o'zi belgilaydi",
-  "env.err.exists": "Bu kalit allaqachon bor — qalamchani bosib tahrirlang"
+  "env.err.exists": "Bu kalit allaqachon bor — qalamchani bosib tahrirlang",
+  "update.ready": "Panelning yangi versiyasi o'rnatildi. Uni ishlatish uchun qayta kiring.",
+  "update.relogin": "Qayta kirish"
 }

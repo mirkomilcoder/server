@@ -62,7 +62,7 @@ function iconFor(e: Entry) {
 const errText = (e: unknown) => (e instanceof ActionError ? (e.details || e.message) : (e as Error)?.message ?? String(e));
 
 export default function FilesPage(_props: PageProps) {
-  const { t } = useT();
+  const { t, locale, lang } = useT();
   const toast = useToast();
   const sys = useSystem();
   const home = useMemo(() => sessionUser().home || '/', []);
@@ -551,7 +551,7 @@ export default function FilesPage(_props: PageProps) {
                       </span>
                     </span>
                     <span className="fm-col fm-col--size">{isDirLike(it.e) ? '—' : humanSize(it.e.size)}</span>
-                    <span className="fm-col fm-col--date" title={new Date(it.e.mtime * 1000).toLocaleString()}>{fmtDate(it.e.mtime)}</span>
+                    <span className="fm-col fm-col--date" title={new Date(it.e.mtime * 1000).toLocaleString(locale)}>{fmtDate(it.e.mtime, lang)}</span>
                     <span className="fm-col fm-col--perm mono" title={`${it.e.owner}:${it.e.group}`}>{it.e.mode} · {it.e.owner}</span>
                     <span className="fm-col fm-col--menu">
                       <button className="icon-btn" aria-label={t('fm.actions')} onClick={(e) => {
@@ -718,12 +718,21 @@ export default function FilesPage(_props: PageProps) {
   );
 }
 
-function fmtDate(sec: number): string {
+// Own month names: not every browser ships Uzbek date formats (some show "M11 26").
+const MONTHS: Record<string, string[]> = {
+  uz: ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'],
+  ru: ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+};
+
+function fmtDate(sec: number, lang: string): string {
   const d = new Date(sec * 1000);
   const now = new Date();
-  return d.toDateString() === now.toDateString()
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString([], { year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric', month: 'short', day: 'numeric' });
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (d.toDateString() === now.toDateString()) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const m = (MONTHS[lang] ?? MONTHS.en)[d.getMonth()];
+  const day = lang === 'uz' ? `${d.getDate()}-${m}` : `${d.getDate()} ${m}`;
+  return d.getFullYear() === now.getFullYear() ? day : `${day} ${d.getFullYear()}`;
 }
 
 /** "report.pdf" → "report (nusxa).pdf", unique within the folder. */

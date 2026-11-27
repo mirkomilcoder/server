@@ -50,6 +50,7 @@ export async function runAction<K extends ActionId>(
   const elevated = !!def.privileged || (!!def.elevatable && !!opts.asAdmin);
   if (elevated) spawnOpts.superuser = 'require';
   if (def.environ) spawnOpts.environ = def.environ;
+  if (def.binary) spawnOpts.binary = true;
   if (def.pty) {
     spawnOpts.pty = true;
     spawnOpts.err = 'out';
@@ -61,12 +62,17 @@ export async function runAction<K extends ActionId>(
   const proc = cockpit().spawn(argv, spawnOpts);
   if (opts.onOutput) {
     const cb = opts.onOutput;
-    proc.stream((chunk) => cb(chunk, (input) => proc.input(input, true)));
+    const dec = new TextDecoder();
+    proc.stream((chunk) => {
+      const text = typeof chunk === 'string' ? chunk : dec.decode(chunk as unknown as Uint8Array, { stream: true });
+      cb(text, (input) => proc.input(input, true));
+    });
   }
   opts.signal?.addEventListener('abort', () => proc.close('terminated'), { once: true });
 
   try {
-    const out = await proc;
+    const raw: unknown = await proc;
+    const out = typeof raw === 'string' ? raw : new TextDecoder().decode(raw as Uint8Array);
     if (audit) void writeAudit(user.name, id, target, 'ok');
     return out;
   } catch (e) {

@@ -11,6 +11,7 @@ import { useApplyTheme } from '@/theme/theme';
 import { useRoute } from '@/router';
 import { modeById } from '@/modes';
 import { CommandPalette } from '@/components/CommandPalette';
+import { UpdateNotice } from '@/components/UpdateNotice';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function Root() {
@@ -54,6 +55,7 @@ function Root() {
           <Mode page={page} go={go} openPalette={() => setPalette(true)} />
         </Suspense>
       </ErrorBoundary>
+      <UpdateNotice />
       <CommandPalette open={palette} onClose={() => setPalette(false)} go={go} />
     </MotionConfig>
   );

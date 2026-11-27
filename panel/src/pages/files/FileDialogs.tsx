@@ -60,7 +60,7 @@ export function PropsDialog({ items, dir, asAdmin, onClose, onChmod }: {
   onClose: () => void;
   onChmod: (paths: string[], mode: string) => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const first = items?.[0];
   const [mode, setMode] = useState('644');
   const [du, setDu] = useState<number | null>(null);
@@ -95,7 +95,7 @@ export function PropsDialog({ items, dir, asAdmin, onClose, onChmod }: {
           <dt>{t('fm.type')}</dt><dd>{single ? t(`fm.kind.${first.e.type}`) + (first.e.linkTo ? ` → ${first.e.linkTo}` : '') : '—'}</dd>
           <dt>{t('fm.size')}</dt>
           <dd>{single && first.e.type === 'dir' ? (du === null ? t('common.loading') : du < 0 ? '—' : humanSize(du)) : humanSize(total)}</dd>
-          {single && <><dt>{t('fm.modified')}</dt><dd>{new Date(first.e.mtime * 1000).toLocaleString()}</dd></>}
+          {single && <><dt>{t('fm.modified')}</dt><dd>{new Date(first.e.mtime * 1000).toLocaleString(locale)}</dd></>}
           {single && <><dt>{t('fm.owner')}</dt><dd className="mono">{first.e.owner}:{first.e.group}</dd></>}
         </dl>
         <div className="fm-perm" role="group" aria-label={t('fm.perms')}>

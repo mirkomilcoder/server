@@ -460,7 +460,7 @@
   "dom.connections": "Connections",
   "dom.noPorts": "The server only connects outward — no router ports to open.",
   "dom.panel": "Panel address",
-  "dom.panelHint": "Cloudflare sends a login code only to these emails (7-day session), then the server login follows; the role decides access. The list follows the Users page automatically.",
+  "dom.panelHint": "Cloudflare sends a login code only to these emails (7-day session), then the server login follows; the role decides access. The list follows the Users page automatically. The code only goes to listed emails: for any other address Cloudflare still says “code sent” but sends nothing. It comes from noreply@notify.cloudflare.com — check Spam too.",
   "dom.hosts": "App addresses",
   "dom.noHosts": "No web apps yet. Once you deploy, the address appears here automatically.",
   "dom.root": "Root domain",

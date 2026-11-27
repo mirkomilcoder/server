@@ -460,7 +460,7 @@
   "dom.connections": "Ulanishlar",
   "dom.noPorts": "Server faqat tashqariga ulanadi — routerda port ochish shart emas.",
   "dom.panel": "Panel manzili",
-  "dom.panelHint": "Cloudflare faqat shu emaillarga kirish kodi beradi (sessiya 7 kun), keyin server logini va paroli so'raladi — rol ko'rinadigan bo'limlarni belgilaydi. Ro'yxat Foydalanuvchilar sahifasi bilan avtomatik yangilanadi.",
+  "dom.panelHint": "Cloudflare faqat shu emaillarga kirish kodi beradi (sessiya 7 kun), keyin server logini va paroli so'raladi — rol ko'rinadigan bo'limlarni belgilaydi. Ro'yxat Foydalanuvchilar sahifasi bilan avtomatik yangilanadi. Kod faqat ro'yxatdagi emaillarga keladi: boshqa email kiritilsa, Cloudflare xavfsizlik uchun «kod yuborildi» deydi, lekin yubormaydi. Kod noreply@notify.cloudflare.com dan keladi — Spam papkasini ham tekshiring.",
   "dom.hosts": "Ilova manzillari",
   "dom.noHosts": "Hali veb-ilova yo'q. Loyiha deploy qilinsa, manzili shu yerda avtomatik paydo bo'ladi.",
   "dom.root": "Asosiy domen",

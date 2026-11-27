@@ -186,3 +186,16 @@ def test_account_api_tokens_cfat_work(env):
     out = cfm.setup("cfat_" + "x" * 48, "example.uz", ["a@b.uz"], requester=api)
     assert out["configured"] and ("GET", "/accounts/A/tokens/verify") in api.calls
 
+
+
+@pytest.mark.parametrize("err,expect", [
+    ("Cloudflare: 9109: Invalid access token", "qabul qilmadi"),
+    ("Cloudflare: 1000: Invalid API Token", "qabul qilmadi"),
+    ("Cloudflare: 9109: Unauthorized to access requested resource", "Zone Read"),
+    ("Cloudflare: 10000: Authentication error", "Zone Read"),
+])
+def test_token_errors_are_explained(err, expect):
+    def req(_m, _p, _b):
+        raise CFError(err)
+    with pytest.raises(CFError, match=expect.replace(" ", ".*")):
+        CF(TOKEN, req).zone("example.uz")

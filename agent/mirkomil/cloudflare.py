@@ -89,9 +89,13 @@ class CF:
         try:
             r = self.req("GET", f"/zones?name={domain}", None) or []
         except CFError as e:
-            if "1000" in str(e) or "Invalid API Token" in str(e):
-                raise CFError("Cloudflare tokenni qabul qilmadi: to'liq nusxalanganini tekshiring (bo'sh joysiz)")
-            if "9109" in str(e) or "Unauthorized" in str(e) or "10000" in str(e):
+            msg = str(e).lower()
+            # 9109 "Invalid access token" / 1000 "Invalid API Token": the token itself is wrong
+            if "invalid access token" in msg or "invalid api token" in msg:
+                raise CFError("Cloudflare tokenni qabul qilmadi: to'liq nusxalanganini tekshiring (bo'sh joysiz). "
+                              "Token o'chirilgan yoki yangilangan (Roll) bo'lsa, yangisini kiriting.")
+            # 9109 "Unauthorized to access requested resource" / 10000 "Authentication error": missing permission
+            if "unauthorized" in msg or "authentication error" in msg:
                 raise CFError("Tokenda «Zone · Zone · Read» ruxsati yo'q yoki u bu domenga berilmagan")
             raise
         if not r:

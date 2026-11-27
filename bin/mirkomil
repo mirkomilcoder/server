@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # doctor checks pass '$(…)' to `bash -c` on purpose: it must expand there
 # mirkomil — command-line helper for SSH sessions.
 #   mirkomil status | doctor | repair | update | logs | version
 # (M1: shell version. Later milestones add apps/backup commands via the agent.)

@@ -53,8 +53,8 @@ module_run() {
   install_file "$MK_SRC/configs/cockpit/branding/logo.svg" "$BRANDING_DIR/logo.svg"
   # the panel's own fonts for the login page (new files, not owned by any package)
   local inter display
-  inter="$(ls "$PANEL_DIR"/assets/inter-latin-wght-normal-*.woff2 2>/dev/null | head -n1 || true)"
-  display="$(ls "$PANEL_DIR"/assets/space-grotesk-latin-wght-normal-*.woff2 2>/dev/null | head -n1 || true)"
+  inter="$(compgen -G "$PANEL_DIR/assets/inter-latin-wght-normal-*.woff2" | head -n1 || true)"
+  display="$(compgen -G "$PANEL_DIR/assets/space-grotesk-latin-wght-normal-*.woff2" | head -n1 || true)"
   if [[ -n "$inter" ]]; then install_file "$inter" "$BRANDING_DIR/inter.woff2"; fi
   if [[ -n "$display" ]]; then install_file "$display" "$BRANDING_DIR/display.woff2"; fi
   ok "Kirish sahifasi brendlangan (asl fayllar: *.distrib)"

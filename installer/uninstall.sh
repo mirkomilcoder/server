@@ -39,6 +39,8 @@ uninstall_main() {
     [[ -e "$f" ]] || continue
     # never delete a file we don't manage (daemon.json has no header: compare content)
     if grep -q "$MK_MANAGED_HEADER" "$f" 2>/dev/null || cmp -s "$f" "$MK_SRC/configs/docker/daemon.json" || [[ "$f" == /usr/local/bin/mirkomil ]]; then
+      # newest backup by time; names are our own <path>.<timestamp>, so ls output is safe
+      # shellcheck disable=SC2012
       bak="$(ls -1t "$MK_BACKUP_DIR$f".* 2>/dev/null | head -n1 || true)"
       if [[ -n "$bak" ]]; then cp -a "$bak" "$f"; info "Tiklandi: $f"; else rm -f "$f"; info "O'chirildi: $f"; fi
     fi

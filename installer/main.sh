@@ -46,7 +46,7 @@ while (($#)); do
 done
 export MK_NONINTERACTIVE="${MK_NONINTERACTIVE:-0}"
 
-require_root
+require_root "$@"
 mkdir -p "$(dirname "$MK_LOG")" "$MK_STATE" "$MK_BACKUP_DIR"
 touch "$MK_LOG"; chmod 0600 "$MK_LOG"
 chmod 0700 "$MK_BACKUP_DIR"

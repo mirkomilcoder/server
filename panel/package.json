@@ -1,7 +1,7 @@
 {
   "name": "mirkomil-panel",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Mirkomil Panel \u0420\u0406\u0420\u201a\u0432\u0402\u045c Cockpit plugin for a home Ubuntu server",
   "type": "module",
   "scripts": {

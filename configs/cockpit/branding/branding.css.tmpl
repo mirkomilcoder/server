@@ -157,6 +157,11 @@ body.login-pf {
 #user-group .control-label::after { content: "Foydalanuvchi nomi"; font-size: 13px; }
 #password-group .control-label::after { content: "Parol"; font-size: 13px; }
 #login-button-text::after { content: "Kirish"; font-size: 15px; }
+/* Failed logins were mostly a name that isn't a server account (an email, the
+   brand name shown in "Server: …", a browser's stale autofill): say what to type. */
+#login #login-note { font-size: 0 !important; }
+#login #login-note::after { content: "Serverdagi foydalanuvchi nomi va parolini kiriting (email emas)"; font-size: 12.5px; }
+#login-details { display: none !important; }
 
 #login .pf-v6-c-check,
 #login .pf-v6-c-check__label { color: var(--mk-muted) !important; font-size: 13px !important; }

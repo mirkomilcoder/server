@@ -10,9 +10,24 @@
 MODULE_TITLE="Xavfsizlik: firewall, fail2ban, SSH"
 
 module_run() {
+  security_ssh_server
   security_ufw
   security_fail2ban
   security_ssh
+}
+
+# SSH server installed and running, also after reboots (desktop/minimal Ubuntu ships without it).
+security_ssh_server() {
+  apt_install openssh-server
+  if [[ "$(systemctl is-enabled ssh.service 2>/dev/null)" == enabled ]]; then
+    run systemctl start ssh.service
+  elif systemctl cat ssh.socket >/dev/null 2>&1; then
+    # Ubuntu 22.10+: sshd is started on demand by ssh.socket
+    run systemctl enable --now ssh.socket
+  else
+    run systemctl enable --now ssh.service
+  fi
+  ok "SSH server yoqilgan (qayta yuklanganda ham avtomatik ishga tushadi)"
 }
 
 ssh_port() { sshd -T 2>/dev/null | awk '/^port / && !done {print $2; done=1}'; }

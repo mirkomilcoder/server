@@ -10,7 +10,7 @@
 #   - Secrets are never passed to `run` (it logs the command line);
 #     use `run_quiet_secret` for those.
 
-MK_VERSION="${MK_VERSION:-0.1.0}"
+MK_VERSION="${MK_VERSION:-0.2.0}"
 MK_ETC="/etc/mirkomil"
 MK_CONFIG="$MK_ETC/config.env"
 MK_SECRETS="$MK_ETC/secrets.env"

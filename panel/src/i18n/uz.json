@@ -730,5 +730,11 @@
   "wizard.rootDirAuto": "avto — repo ildizi yoki yagona loyiha papkasi",
   "wizard.rootDirHint": "Loyiha repo ichidagi papkada bo'lsa (masalan bot yoki apps/web). Bo'sh qoldirsangiz o'zi topadi.",
   "wizard.rootDirBad": "Papka nomi noto'g'ri: harf, raqam, . _ - va / (\"..\" mumkin emas)",
-  "update.chunkTitle": "Panel yangilandi"
+  "update.chunkTitle": "Panel yangilandi",
+  "access2fa.title": "Cloudflare himoyasi (2FA)",
+  "access2fa.descOn": "Yoqilgan: {host} ochilganda avval Cloudflare emailingizni tekshiradi, keyin server logini va paroli so'raladi.",
+  "access2fa.descOff": "O'chirilgan: {host} da faqat oddiy kirish oynasi — server foydalanuvchi nomi va paroli.",
+  "access2fa.warn": "Kirish sahifasi internetga ochiq — kuchli parol ishlating.",
+  "access2fa.on": "Cloudflare himoyasi yoqildi",
+  "access2fa.off": "Cloudflare himoyasi o'chirildi — endi faqat server logini"
 }

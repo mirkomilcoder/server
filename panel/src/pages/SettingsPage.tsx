@@ -8,6 +8,7 @@ import { pagesFor } from './registry';
 import { useGuardian } from '@/state/guardian';
 import { AccountCard } from '@/widgets/AccountCard';
 import { IdentityCard } from '@/widgets/IdentityCard';
+import { AccessCard } from '@/widgets/AccessCard';
 import type { PageProps } from './registry';
 
 /*
@@ -55,6 +56,7 @@ export default function SettingsPage({ go }: PageProps) {
       </div>
       <MotionGrid className="form-grid">
         <AccountCard onUsers={() => go('users')} />
+        <AccessCard />
         <IdentityCard />
         <Card title={t('settings.mode')}>
           <Choices k="mode" options={MODES.map((m) => ({ value: m.id, label: t(m.label) }))} />

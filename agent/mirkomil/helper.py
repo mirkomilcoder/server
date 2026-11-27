@@ -388,6 +388,11 @@ def v_tunnel_setup(a: dict[str, Any]) -> Any:
     return out
 
 
+def v_tunnel_access(a: dict[str, Any]) -> Any:
+    from . import cloudflare
+    return _cf_call(lambda: cloudflare.set_panel_access(bool(a.get("enabled"))))
+
+
 def v_tunnel_sync(_a: dict[str, Any]) -> Any:
     from . import cloudflare
     return _cf_call(cloudflare.sync)
@@ -470,6 +475,7 @@ VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "user.groups": v_user_groups,
     "tunnel.setup": v_tunnel_setup,
     "tunnel.sync": v_tunnel_sync,
+    "tunnel.access": v_tunnel_access,
     "tunnel.status": v_tunnel_status,
     "app.deploykey": v_app_deploykey,
     "app.remote_head": v_app_remote_head,

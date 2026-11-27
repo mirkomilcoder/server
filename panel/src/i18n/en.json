@@ -730,5 +730,11 @@
   "wizard.rootDirAuto": "auto — repo root or the only project folder",
   "wizard.rootDirHint": "If the project lives in a subfolder (e.g. bot or apps/web). Leave empty to find it automatically.",
   "wizard.rootDirBad": "Invalid folder: letters, digits, . _ - and / (no \"..\")",
-  "update.chunkTitle": "The panel was updated"
+  "update.chunkTitle": "The panel was updated",
+  "access2fa.title": "Cloudflare protection (2FA)",
+  "access2fa.descOn": "On: opening {host} first checks your email with Cloudflare, then asks for the server login.",
+  "access2fa.descOff": "Off: {host} shows only the plain sign-in — server username and password.",
+  "access2fa.warn": "The sign-in page is open to the internet — use a strong password.",
+  "access2fa.on": "Cloudflare protection on",
+  "access2fa.off": "Cloudflare protection off — server login only"
 }

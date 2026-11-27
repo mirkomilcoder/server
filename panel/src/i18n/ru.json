@@ -730,5 +730,11 @@
   "wizard.rootDirAuto": "авто — корень или единственная папка проекта",
   "wizard.rootDirHint": "Если проект во вложенной папке (например bot или apps/web). Пусто — найдём сами.",
   "wizard.rootDirBad": "Неверная папка: буквы, цифры, . _ - и / (без \"..\")",
-  "update.chunkTitle": "Панель обновлена"
+  "update.chunkTitle": "Панель обновлена",
+  "access2fa.title": "Защита Cloudflare (2FA)",
+  "access2fa.descOn": "Включено: сначала Cloudflare проверяет email, затем вход на сервер.",
+  "access2fa.descOff": "Выключено: на {host} только обычный вход — имя пользователя и пароль сервера.",
+  "access2fa.warn": "Страница входа открыта в интернет — используйте сильный пароль.",
+  "access2fa.on": "Защита Cloudflare включена",
+  "access2fa.off": "Защита Cloudflare выключена"
 }

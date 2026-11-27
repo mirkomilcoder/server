@@ -302,6 +302,8 @@ export interface TunnelStatus {
   /** systemd unit state of cloudflared */
   service?: string;
   error?: string;
+  /** Cloudflare Access step in front of the panel ("2FA"); missing = on */
+  panel_access?: boolean;
 }
 
 export interface TunnelSync {
@@ -315,6 +317,7 @@ export const tunnel = {
   /** token may be empty to reuse the stored one (changing emails / root app). */
   setup: (token: string, emails: string[], root_app: string | null) => post<TunnelSync>('/v1/tunnel/setup', { token, emails, root_app }),
   sync: () => post<TunnelSync>('/v1/tunnel/sync', {}),
+  setAccess: (enabled: boolean) => post<TunnelSync & { panel_access: boolean }>('/v1/tunnel/access', { enabled }),
 };
 
 export const docker = {

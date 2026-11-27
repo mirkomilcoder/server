@@ -175,14 +175,14 @@ class CF:
 
 # ---------------------------------------------------------------- desired state
 
-def build_ingress(domain: str, routes: dict[str, Any], team: str, aud: str, root_app: str | None) -> list[dict[str, Any]]:
-    """Ordered tunnel rules; the catch-all 404 must be last (Cloudflare requirement)."""
-    rules: list[dict[str, Any]] = [{
-        "hostname": f"panel.{domain}",
-        "service": "https://localhost:9090",
-        "originRequest": {"noTLSVerify": True,  # Cockpit's self-signed cert, over localhost only
-                          "access": {"required": True, "teamName": team.split(".")[0], "audTag": [aud]}},
-    }]
+def build_ingress(domain: str, routes: dict[str, Any], team: str, aud: str, root_app: str | None,
+                  protect: bool = True) -> list[dict[str, Any]]:
+    """Ordered tunnel rules; the catch-all 404 must be last (Cloudflare requirement).
+    protect=False: the panel has no Cloudflare Access step (only Cockpit's own login)."""
+    origin: dict[str, Any] = {"noTLSVerify": True}  # Cockpit's self-signed cert, over localhost only
+    if protect:
+        origin["access"] = {"required": True, "teamName": team.split(".")[0], "audTag": [aud]}
+    rules: list[dict[str, Any]] = [{"hostname": f"panel.{domain}", "service": "https://localhost:9090", "originRequest": origin}]
     # GitHub webhooks: only POST /github/<app> with a valid per-app HMAC is accepted there
     rules.append({"hostname": f"hooks.{domain}", "service": "http://localhost:8099"})
     for app, r in sorted(routes.items()):
@@ -251,11 +251,13 @@ def setup(token: str, domain: str, emails: list[str], root_app: str | None = Non
     cf.verify(acc)
     team = cf.team_domain(acc)
     tid, tunnel_token = cf.ensure_tunnel(acc, f"mirkomil-{domain}")
-    aud = cf.ensure_access_app(acc, f"panel.{domain}", emails)
+    protect = load_state().get("panel_access", True)
+    aud = cf.ensure_access_app(acc, f"panel.{domain}", emails) if protect else load_state().get("aud", "")
     _write_secret("api_token", token)
     _write_secret("tunnel.env", f"TUNNEL_TOKEN={tunnel_token}\n")
     state = {"domain": domain, "zone_id": zone, "account_id": acc, "tunnel_id": tid, "team": team,
-             "aud": aud, "emails": emails, "root_app": root_app, "panel_host": f"panel.{domain}"}
+             "aud": aud, "emails": emails, "root_app": root_app, "panel_host": f"panel.{domain}",
+             "panel_access": protect}
     save_state(state)
     return sync(requester=requester)
 
@@ -266,12 +268,39 @@ def sync(requester: Requester | None = None) -> dict[str, Any]:
     if not st.get("tunnel_id"):
         return {"configured": False}
     cf = CF(_read_secret("api_token"), requester)
-    ingress = build_ingress(st["domain"], load_routes(), st["team"], st["aud"], st.get("root_app"))
+    ingress = build_ingress(st["domain"], load_routes(), st["team"], st["aud"], st.get("root_app"),
+                            protect=st.get("panel_access", True))
     cf.put_ingress(st["account_id"], st["tunnel_id"], ingress)
     dns = cf.sync_dns(st["zone_id"], st["tunnel_id"], hosts_of(ingress), st["domain"])
     st["hosts"] = hosts_of(ingress)
     save_state(st)
     return {"configured": True, "hosts": st["hosts"], "dns": dns}
+
+
+def set_panel_access(enabled: bool, requester: Requester | None = None) -> dict[str, Any]:
+    """Cloudflare Access in front of the panel on/off ("2FA" in the panel's settings).
+    The order never leaves a gap that blocks everyone: on → create the Access app first, then make
+    cloudflared require its token; off → stop requiring the token first, then delete the app."""
+    st = load_state()
+    if not st.get("tunnel_id"):
+        raise CFError("avval domenni ulang (Domenlar & SSL)")
+    cf = CF(_read_secret("api_token"), requester)
+    acc, host = st["account_id"], st["panel_host"]
+    if enabled:
+        if not st.get("emails"):
+            raise CFError("ruxsat etilgan email yo'q — Domenlar & SSL'da emailingizni kiriting")
+        st["aud"] = cf.ensure_access_app(acc, host, st["emails"])
+        st["panel_access"] = True
+        save_state(st)
+        out = sync(requester=requester)
+    else:
+        st["panel_access"] = False
+        save_state(st)
+        out = sync(requester=requester)
+        for app in cf.req("GET", f"/accounts/{acc}/access/apps", None) or []:
+            if app.get("domain") == host:
+                cf.req("DELETE", f"/accounts/{acc}/access/apps/{app['id']}", None)
+    return {**out, "panel_access": enabled}
 
 
 def status(requester: Requester | None = None) -> dict[str, Any]:
@@ -280,6 +309,7 @@ def status(requester: Requester | None = None) -> dict[str, Any]:
         return {"configured": False}
     out = {k: st.get(k) for k in ("domain", "panel_host", "hosts", "emails", "root_app", "team")}
     out["configured"] = True
+    out["panel_access"] = st.get("panel_access", True)
     try:
         cf = CF(_read_secret("api_token"), requester)
         out.update(cf.tunnel_status(st["account_id"], st["tunnel_id"]))

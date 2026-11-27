@@ -467,6 +467,15 @@ def register(api: Any, state: Any) -> None:
                      f"ruxsat: {', '.join(str(e) for e in emails)}", actor=p.user)
         return res
 
+    @api.route("POST", "/v1/tunnel/access", role="admin")
+    async def tunnel_access(p: Peer, _q: dict[str, str], b: Any) -> Any:
+        """Cloudflare Access step in front of the panel on/off (panel setting "2FA")."""
+        on = bool((b or {}).get("enabled"))
+        res = await h("tunnel.access", {"enabled": on}, timeout=120)
+        db.add_event("action", "info" if on else "warn",
+                     f"Panel himoyasi (Cloudflare 2FA) {'yoqildi' if on else 'o‘chirildi'}", actor=p.user)
+        return res
+
     @api.route("POST", "/v1/tunnel/sync", role="admin")
     async def tunnel_sync(p: Peer, _q: dict[str, str], _b: Any) -> Any:
         res = await h("tunnel.sync", timeout=120)

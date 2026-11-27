@@ -83,6 +83,10 @@ class FakeAPI:
             else:
                 self.policies["APP"] = [{**body, "id": "P1"}]
             return {}
+        if path == "/accounts/A/access/apps/APP" and method == "DELETE":
+            self.apps = []
+            self.calls.append(("DELETED-WHEN-INGRESS-PROTECTED", str("access" in json.dumps(self.ingress[0]))))
+            return {}
         if path == "/accounts/A/access/apps/APP" and method == "PUT":
             return {**body, "id": "APP", "aud": "AUD123"}
         raise AssertionError(f"unexpected {method} {path}")
@@ -185,4 +189,20 @@ def test_account_api_tokens_cfat_work(env):
     api = FakeAPI(account_token=True)
     out = cfm.setup("cfat_" + "x" * 48, "example.uz", ["a@b.uz"], requester=api)
     assert out["configured"] and ("GET", "/accounts/A/tokens/verify") in api.calls
+
+
+def test_panel_cloudflare_step_can_be_switched_off_and_on(env):
+    api = FakeAPI()
+    cfm.setup(TOKEN, "example.uz", ["boss@gmail.com"], requester=api)
+    assert "access" in api.ingress[0]["originRequest"]
+    out = cfm.set_panel_access(False, requester=api)
+    assert out["panel_access"] is False and api.apps == []
+    assert "access" not in api.ingress[0]["originRequest"]  # plain Cockpit login only
+    # the token requirement was dropped BEFORE the app was deleted (no window that blocks everyone)
+    assert ("DELETED-WHEN-INGRESS-PROTECTED", "False") in api.calls
+    assert cfm.status(requester=api)["panel_access"] is False
+    cfm.sync(requester=api)  # a later sync (e.g. after a deploy) keeps it off
+    assert "access" not in api.ingress[0]["originRequest"]
+    cfm.set_panel_access(True, requester=api)
+    assert api.apps and api.ingress[0]["originRequest"]["access"]["audTag"] == ["AUD123"]
 

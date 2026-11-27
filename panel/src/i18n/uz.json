@@ -729,5 +729,12 @@
   "wizard.rootDir": "Papka (ixtiyoriy)",
   "wizard.rootDirAuto": "avto — repo ildizi yoki yagona loyiha papkasi",
   "wizard.rootDirHint": "Loyiha repo ichidagi papkada bo'lsa (masalan bot yoki apps/web). Bo'sh qoldirsangiz o'zi topadi.",
-  "wizard.rootDirBad": "Papka nomi noto'g'ri: harf, raqam, . _ - va / (\"..\" mumkin emas)"
+  "wizard.rootDirBad": "Papka nomi noto'g'ri: harf, raqam, . _ - va / (\"..\" mumkin emas)",
+  "dom.whoTitle": "Kimlar Cloudflare'dan o'tadi?",
+  "dom.who.everyone": "Har kim (email kod bilan)",
+  "dom.who.everyone.about": "Istalgan email'ga kod keladi, keyin server logini va paroli so'raladi. Rolga qarab admin — admin paneliga, dasturchi — dasturchi paneliga tushadi.",
+  "dom.who.emails": "Faqat ro'yxatdagi emaillar",
+  "dom.who.emails.about": "Eng xavfsiz: ro'yxatda yo'q odam server login sahifasini ham ko'rmaydi.",
+  "dom.panelHintEveryone": "Istalgan email'ga kirish kodi keladi (7 kunlik sessiya), keyin server logini va paroli so'raladi — rol ko'rinadigan bo'limlarni belgilaydi.",
+  "dom.warning": "Diqqat"
 }

@@ -24,6 +24,7 @@ import os
 import re
 import secrets
 import time
+from pathlib import Path
 from typing import Any
 
 from .. import helper
@@ -164,6 +165,24 @@ async def _respond(writer: asyncio.StreamWriter, status: int, body: dict[str, An
         writer.close()
 
 
+LOGO = Path(__file__).resolve().parents[3] / "configs" / "cockpit" / "branding" / "logo.svg"
+
+
+async def _respond_logo(writer: asyncio.StreamWriter) -> None:
+    """The server's logo for the Cloudflare Access login page (a public image, nothing else)."""
+    try:
+        data = LOGO.read_bytes()
+    except OSError:
+        return await _respond(writer, 404, {"error": "not found"})
+    writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nCache-Control: public, max-age=3600\r\n"
+                 b"X-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; style-src 'unsafe-inline'\r\n"
+                 + f"Content-Length: {len(data)}\r\nConnection: close\r\n\r\n".encode() + data)
+    try:
+        await writer.drain()
+    finally:
+        writer.close()
+
+
 async def _handle(state: Any, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     try:
         head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=10)
@@ -176,6 +195,8 @@ async def _handle(state: Any, reader: asyncio.StreamReader, writer: asyncio.Stre
         headers = {k.strip().lower(): v.strip() for k, _, v in (ln.partition(":") for ln in lines[1:] if ln)}
     except ValueError:
         return await _respond(writer, 400, {"error": "bad request"})
+    if method == "GET" and path.split("?", 1)[0] == "/brand/logo.svg":
+        return await _respond_logo(writer)
     m = PATH_RE.match(path.split("?", 1)[0])
     if not m:
         return await _respond(writer, 404, {"error": "not found"})

@@ -455,16 +455,20 @@ def register(api: Any, state: Any) -> None:
     async def tunnel_setup(p: Peer, _q: dict[str, str], b: Any) -> Any:
         """The API token passes through to the root helper and is stored root-only; it is never logged or returned."""
         b = b if isinstance(b, dict) else {}
-        emails = b.get("emails")
-        if not isinstance(emails, list) or not emails or len(emails) > 50:
+        mode = str(b.get("access_mode") or "emails")
+        if mode not in ("everyone", "emails"):
+            raise HttpError(400, "kirish rejimi: everyone yoki emails")
+        emails = b.get("emails") or []
+        if not isinstance(emails, list) or len(emails) > 50 or (mode == "emails" and not emails):
             raise HttpError(400, "kamida bitta email kerak")
         root = b.get("root_app") or None
         if root is not None:
             root = get_app(str(root))["name"]
         res = await h("tunnel.setup", {"token": str(b.get("token") or ""), "domain": state.cfg.domain,
-                                       "emails": [str(e) for e in emails], "root_app": root}, timeout=120)
-        db.add_event("action", "info", f"Cloudflare Tunnel sozlandi: panel.{state.cfg.domain}",
-                     f"ruxsat: {', '.join(str(e) for e in emails)}", actor=p.user)
+                                       "emails": [str(e) for e in emails], "root_app": root,
+                                       "access_mode": mode, "brand": state.cfg.brand}, timeout=120)
+        who = "har kim (email kod bilan), keyin server login" if mode == "everyone" else ", ".join(str(e) for e in emails)
+        db.add_event("action", "info", f"Cloudflare Tunnel sozlandi: panel.{state.cfg.domain}", f"ruxsat: {who}", actor=p.user)
         return res
 
     @api.route("POST", "/v1/tunnel/sync", role="admin")

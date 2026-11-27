@@ -302,18 +302,25 @@ export interface TunnelStatus {
   /** systemd unit state of cloudflared */
   service?: string;
   error?: string;
+  /** "everyone": any email gets a login code, then the server login decides; "emails": only the list */
+  access_mode?: AccessMode;
+  warnings?: string[];
 }
+
+export type AccessMode = 'everyone' | 'emails';
 
 export interface TunnelSync {
   configured: boolean;
   hosts?: string[];
   dns?: { created: string[]; skipped: string[]; removed: string[] };
+  warnings?: string[];
 }
 
 export const tunnel = {
   status: () => get<TunnelStatus>('/v1/tunnel'),
   /** token may be empty to reuse the stored one (changing emails / root app). */
-  setup: (token: string, emails: string[], root_app: string | null) => post<TunnelSync>('/v1/tunnel/setup', { token, emails, root_app }),
+  setup: (token: string, emails: string[], root_app: string | null, access_mode: AccessMode) =>
+    post<TunnelSync>('/v1/tunnel/setup', { token, emails, root_app, access_mode }),
   sync: () => post<TunnelSync>('/v1/tunnel/sync', {}),
 };
 

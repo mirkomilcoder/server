@@ -12,7 +12,8 @@ Token permissions needed. Either kind of token works:
     User API token (dash.cloudflare.com → My Profile → API Tokens)
     Account · Cloudflare Tunnel · Edit
     Account · Access: Apps and Policies · Edit
-    Account · Access: Organizations, Identity Providers, and Groups · Read
+    Account · Access: Organizations, Identity Providers, and Groups · Edit
+        (Edit: turn on email-code login and brand the Access login page; Read still works without those)
     Zone · DNS · Edit   and   Zone · Zone · Read   (for the hosting domain)
 
 Layout:
@@ -157,16 +158,50 @@ class CF:
         return {"created": created, "skipped": skipped, "removed": removed}
 
     # ---- Access (panel protection) ----
-    def ensure_access_app(self, acc: str, host: str, emails: list[str]) -> str:
+    def ensure_otp_idp(self, acc: str) -> str | None:
+        """Login with a one-time code sent to any email ("One-time PIN"). A fresh Zero Trust
+        account may only offer "Cloudflare" sign-in (account members only), so we make sure
+        this exists. None = the token may not create it (needs Edit on identity providers)."""
+        try:
+            idps = self.req("GET", f"/accounts/{acc}/access/identity_providers", None) or []
+            otp = next((i for i in idps if i.get("type") == "onetimepin"), None)
+            if otp is None:
+                otp = self.req("POST", f"/accounts/{acc}/access/identity_providers",
+                               {"name": "Email kod (One-time PIN)", "type": "onetimepin", "config": {}})
+            return otp["id"]
+        except CFError:
+            return None
+
+    def brand_login(self, acc: str, brand: str, domain: str) -> bool:
+        """Access login page in the server's colours and name instead of Cloudflare's default."""
+        try:
+            org = self.req("GET", f"/accounts/{acc}/access/organizations", None) or {}
+            body = {"name": org.get("name") or brand, "auth_domain": org["auth_domain"],
+                    "login_design": {"background_color": "#070B16", "text_color": "#E6EDF7",
+                                     "header_text": brand, "footer_text": f"Server boshqaruv paneli · {domain}",
+                                     "logo_path": f"https://hooks.{domain}/brand/logo.svg"}}
+            self.req("PUT", f"/accounts/{acc}/access/organizations", body)
+            return True
+        except (CFError, KeyError):
+            return False
+
+    def ensure_access_app(self, acc: str, host: str, emails: list[str], mode: str = "emails",
+                          idp: str | None = None) -> str:
+        """mode "everyone": any email that receives the code passes (then the server login and the
+        user's role decide); mode "emails": only the listed addresses."""
         apps = self.req("GET", f"/accounts/{acc}/access/apps", None) or []
         app = next((a for a in apps if a.get("domain") == host), None)
         body = {"name": f"Mirkomil panel ({host})", "domain": host, "type": "self_hosted",
-                "session_duration": SESSION, "app_launcher_visible": False, "auto_redirect_to_identity": False}
+                "session_duration": SESSION, "app_launcher_visible": False,
+                # with only the email-code login there is nothing to choose: go straight to it
+                "auto_redirect_to_identity": bool(idp)}
+        if idp:
+            body["allowed_idps"] = [idp]
         if app is None:
             app = self.req("POST", f"/accounts/{acc}/access/apps", body)
         else:
             app = self.req("PUT", f"/accounts/{acc}/access/apps/{app['id']}", body)
-        include = [{"email": {"email": e}} for e in emails]
+        include = [{"everyone": {}}] if mode == "everyone" else [{"email": {"email": e}} for e in emails]
         policy = {"name": "Mirkomil admins", "decision": "allow", "include": include, "precedence": 1}
         pols = self.req("GET", f"/accounts/{acc}/access/apps/{app['id']}/policies", None) or []
         mine = next((p for p in pols if p.get("name") == "Mirkomil admins"), None)
@@ -245,23 +280,36 @@ def load_routes() -> dict[str, Any]:
 
 # ---------------------------------------------------------------- operations (helper verbs)
 
+ACCESS_MODES = ("everyone", "emails")
+
+
 def setup(token: str, domain: str, emails: list[str], root_app: str | None = None,
-          requester: Requester | None = None) -> dict[str, Any]:
+          requester: Requester | None = None, mode: str = "emails", brand: str = "Mirkomil Host") -> dict[str, Any]:
+    if mode not in ACCESS_MODES:
+        raise CFError("kirish rejimi noto'g'ri")
     emails = sorted({e.strip().lower() for e in emails if e.strip()})
-    if not emails or not all(EMAIL_RE.match(e) for e in emails):
+    if not all(EMAIL_RE.match(e) for e in emails) or (mode == "emails" and not emails):
         raise CFError("kamida bitta to'g'ri email kerak (panelga kira oladiganlar)")
     cf = CF(token, requester)
     zone, acc = cf.zone(domain)  # first call: works for account and user tokens alike
     cf.verify(acc)
     team = cf.team_domain(acc)
     tid, tunnel_token = cf.ensure_tunnel(acc, f"mirkomil-{domain}")
-    aud = cf.ensure_access_app(acc, f"panel.{domain}", emails)
+    warnings = []
+    idp = cf.ensure_otp_idp(acc)
+    if idp is None:
+        warnings.append("Email kod bilan kirishni yoqib bo'lmadi: tokenga «Access: Organizations, Identity Providers, "
+                        "and Groups → Edit» ruxsatini bering va qayta saqlang.")
+    aud = cf.ensure_access_app(acc, f"panel.{domain}", emails, mode, idp)
+    if not cf.brand_login(acc, brand, domain):
+        warnings.append("Cloudflare kirish sahifasini brendlab bo'lmadi (o'sha «Edit» ruxsati kerak).")
     _write_secret("api_token", token)
     _write_secret("tunnel.env", f"TUNNEL_TOKEN={tunnel_token}\n")
     state = {"domain": domain, "zone_id": zone, "account_id": acc, "tunnel_id": tid, "team": team,
-             "aud": aud, "emails": emails, "root_app": root_app, "panel_host": f"panel.{domain}"}
+             "aud": aud, "emails": emails, "root_app": root_app, "panel_host": f"panel.{domain}",
+             "access_mode": mode, "otp": bool(idp), "warnings": warnings}
     save_state(state)
-    return sync(requester=requester)
+    return {**sync(requester=requester), "warnings": warnings}
 
 
 def sync(requester: Requester | None = None) -> dict[str, Any]:
@@ -282,7 +330,8 @@ def status(requester: Requester | None = None) -> dict[str, Any]:
     st = load_state()
     if not st.get("tunnel_id"):
         return {"configured": False}
-    out = {k: st.get(k) for k in ("domain", "panel_host", "hosts", "emails", "root_app", "team")}
+    out = {k: st.get(k) for k in ("domain", "panel_host", "hosts", "emails", "root_app", "team", "warnings")}
+    out["access_mode"] = st.get("access_mode", "emails")
     out["configured"] = True
     try:
         cf = CF(_read_secret("api_token"), requester)

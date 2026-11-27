@@ -383,7 +383,10 @@ def v_tunnel_setup(a: dict[str, Any]) -> Any:
     root = a.get("root_app") or None
     if root is not None and not APP_RE.match(str(root)):
         raise VerbError("invalid root app")
-    out = _cf_call(lambda: cloudflare.setup(token, domain, [str(e) for e in emails], str(root) if root else None))
+    mode = str(a.get("access_mode") or cloudflare.load_state().get("access_mode") or "emails")
+    brand = str(a.get("brand") or "Mirkomil Host")[:40]
+    out = _cf_call(lambda: cloudflare.setup(token, domain, [str(e) for e in emails], str(root) if root else None,
+                                            mode=mode, brand=brand))
     _tunnel_restart()
     return out
 

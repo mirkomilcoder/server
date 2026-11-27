@@ -13,11 +13,14 @@ TOKEN = "t" * 40
 class FakeAPI:
     """Tiny in-memory Cloudflare: enough to drive setup/sync end to end."""
 
-    def __init__(self, zone_found=True, access=True, account_token=False):
+    def __init__(self, zone_found=True, access=True, account_token=False, idp_edit=True):
         self.calls: list[tuple[str, str]] = []
         self.zone_found, self.access = zone_found, access
         # new "cfat_…" Account API tokens: valid only on /accounts/<id>/tokens/verify
         self.account_token = account_token
+        self.idp_edit = idp_edit  # token has "Access: Organizations, Identity Providers, and Groups → Edit"
+        self.idps: list[dict] = []
+        self.login_design = None
         self.tunnels: list[dict] = []
         self.dns: dict[str, dict] = {}
         self.apps: list[dict] = []
@@ -41,8 +44,20 @@ class FakeAPI:
             return {"status": "active"}
         if path.startswith("/zones?name="):
             return [{"id": "Z", "account": {"id": "A"}}] if self.zone_found else []
+        if path == "/accounts/A/access/organizations" and method == "PUT":
+            if not self.idp_edit:
+                raise CFError("Cloudflare: 10000: Authentication error")
+            self.login_design = body["login_design"]
+            return body
         if path == "/accounts/A/access/organizations":
             return {"auth_domain": "myteam.cloudflareaccess.com"} if self.access else {}
+        if path == "/accounts/A/access/identity_providers":
+            if method == "GET":
+                return self.idps
+            if not self.idp_edit:
+                raise CFError("Cloudflare: 10000: Authentication error")
+            self.idps.append({**body, "id": "OTP"})
+            return self.idps[-1]
         if path.startswith("/accounts/A/cfd_tunnel?name="):
             return self.tunnels
         if path == "/accounts/A/cfd_tunnel" and method == "POST":
@@ -199,3 +214,33 @@ def test_token_errors_are_explained(err, expect):
         raise CFError(err)
     with pytest.raises(CFError, match=expect.replace(" ", ".*")):
         CF(TOKEN, req).zone("example.uz")
+
+
+def test_everyone_mode_uses_email_code_login_and_brands_the_page(env):
+    api = FakeAPI()
+    out = cfm.setup(TOKEN, "example.uz", [], mode="everyone", brand="ITC HOSTING", requester=api)
+    assert out["warnings"] == []
+    assert api.idps == [{"name": "Email kod (One-time PIN)", "type": "onetimepin", "config": {}, "id": "OTP"}]
+    app = api.apps[0]
+    assert app["allowed_idps"] == ["OTP"] and app["auto_redirect_to_identity"] is True
+    assert api.policies["APP"][0]["include"] == [{"everyone": {}}]
+    assert api.login_design["header_text"] == "ITC HOSTING"
+    assert api.login_design["logo_path"] == "https://hooks.example.uz/brand/logo.svg"
+    # a second run reuses the existing one-time PIN provider
+    cfm.setup(TOKEN, "example.uz", [], mode="everyone", requester=api)
+    assert len(api.idps) == 1
+    assert cfm.status(requester=api)["access_mode"] == "everyone"
+
+
+def test_read_only_access_permission_still_works_with_clear_warnings(env):
+    api = FakeAPI(idp_edit=False)
+    out = cfm.setup(TOKEN, "example.uz", ["a@b.uz"], requester=api)
+    assert out["configured"] and len(out["warnings"]) == 2 and "Edit" in out["warnings"][0]
+    assert "allowed_idps" not in api.apps[0]
+
+
+def test_email_mode_needs_emails_and_rejects_unknown_mode(env):
+    with pytest.raises(CFError, match="email"):
+        cfm.setup(TOKEN, "example.uz", [], mode="emails", requester=FakeAPI())
+    with pytest.raises(CFError, match="rejim"):
+        cfm.setup(TOKEN, "example.uz", [], mode="public", requester=FakeAPI())

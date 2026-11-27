@@ -62,3 +62,7 @@ export const absPath = z
 
 /** A path that may be changed destructively (delete / move / rename / chmod). */
 export const mutablePath = absPath.refine((p) => !PROTECTED_PATHS.has(p), 'Bu tizim papkasi — o‘zgartirib bo‘lmaydi');
+
+
+/** Same rule as the server (detect.valid_root_dir): "" or up to 5 safe path segments, no "..". */
+export const ROOT_DIR_RE = /^(|(?!.*(^|\/)\.\.(\/|$))[A-Za-z0-9._-]{1,100}(\/[A-Za-z0-9._-]{1,100}){0,4})$/;

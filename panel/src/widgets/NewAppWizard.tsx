@@ -5,6 +5,7 @@ import { useT, type TranslationKey } from '@/i18n';
 import { useBrand } from '@/state/guardian';
 import { useToast } from '@/state/toasts';
 import { Modal } from '@/components/Modal';
+import { ROOT_DIR_RE } from '@/api/validate';
 
 /*
  * New project: GitHub URL → name (auto) → branch → type (auto) → limits → env.
@@ -41,6 +42,9 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
   const [mem, setMem] = useState(512);
   const [cpus, setCpus] = useState(1);
   const [site, setSite] = useState<'auto' | 'yes' | 'no'>('auto');
+  const [rootDir, setRootDir] = useState('');
+  const rootClean = rootDir.trim().replace(/^\/+|\/+$/g, '');
+  const rootOk = ROOT_DIR_RE.test(rootClean);
   const siteRequired = type === 'django' || type === 'fastapi' || type === 'flask' || type === 'static';
   const [env, setEnv] = useState<{ k: string; v: string }[]>([]);
   const [busy, setBusy] = useState(false);
@@ -51,17 +55,17 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
   const envOk = useMemo(() => env.every((e) => !e.k || (ENV_KEY_RE.test(e.k) && e.k !== 'PORT' && !/[\r\n]/.test(e.v))), [env]);
 
   const reset = () => {
-    setRepo(''); setName(''); setNameTouched(false); setBranch('main'); setType(''); setPort(0); setMem(512); setCpus(1); setEnv([]); setSite('auto');
+    setRepo(''); setName(''); setNameTouched(false); setBranch('main'); setType(''); setPort(0); setMem(512); setCpus(1); setEnv([]); setSite('auto'); setRootDir('');
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!repoOk || !nameOk || !envOk) return;
+    if (!repoOk || !nameOk || !envOk || !rootOk) return;
     setBusy(true);
     try {
       const envObj = Object.fromEntries(env.filter((x) => x.k).map((x) => [x.k, x.v]));
       const r = await apps.create({ name: effName, repo: repo.trim(), branch: branch.trim() || 'main', type: type || null, port, mem_mb: mem, cpus, env: envObj,
-        public: siteRequired || site === 'auto' ? null : site === 'yes' });
+        public: siteRequired || site === 'auto' ? null : site === 'yes', root_dir: rootClean });
       reset();
       onCreated(effName, r.deploy_id);
     } catch (err) {
@@ -127,6 +131,12 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
 
         <details className="wizard__more">
           <summary>{t('wizard.advanced')}</summary>
+          <label className="field">
+            <span className="field__label">{t('wizard.rootDir')}</span>
+            <input className="input input--plain mono" value={rootDir} placeholder={t('wizard.rootDirAuto')} onChange={(e) => setRootDir(e.target.value)}
+              aria-invalid={!rootOk} />
+            <span className={rootOk ? 'card__meta' : 'form-error'}>{rootOk ? t('wizard.rootDirHint') : t('wizard.rootDirBad')}</span>
+          </label>
           <div className="wizard__row">
             <label className="field">
               <span className="field__label">{t('wizard.mem')}</span>
@@ -166,7 +176,7 @@ export function NewAppWizard({ open, onClose, onCreated }: { open: boolean; onCl
 
         <div className="modal__actions">
           <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
-          <button type="submit" className="btn btn--accent" disabled={busy || !repoOk || !nameOk || !envOk}>
+          <button type="submit" className="btn btn--accent" disabled={busy || !repoOk || !nameOk || !envOk || !rootOk}>
             <Rocket size={16} /> {busy ? t('common.loading') : t('wizard.submit')}
           </button>
         </div>

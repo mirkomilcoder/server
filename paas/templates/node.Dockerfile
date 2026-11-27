@@ -2,8 +2,9 @@
 FROM node:22-alpine
 ENV PORT=8000
 WORKDIR /app
+# dependencies first: unchanged package*.json → this layer comes from cache (fast redeploys)
 COPY package*.json ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN --mount=type=cache,target=/root/.npm if [ -f package-lock.json ]; then npm ci; else npm install; fi
 COPY . .
 RUN npm run build --if-present && npm prune --omit=dev && chown -R node:node /app
 ENV NODE_ENV=production

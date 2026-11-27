@@ -70,6 +70,20 @@ Natija:
 Token faqat `/var/lib/mirkomil/tunnel/private/` da (`root`, `0600`) saqlanadi va panelda qayta ko'rsatilmaydi.
 Siz yaratmagan DNS yozuvlariga tegilmaydi.
 
+## Loyihalarni deploy qilish
+
+Panel → **Deploy / Loyihalar** → GitHub manzilini kiriting. Qolganini server o'zi aniqlaydi:
+
+* **Tur:** Django, FastAPI, Flask, bot (aiogram va boshqalar), Node.js, statik sayt yoki o'z Dockerfile'ingiz.
+* **Papka:** loyiha repo ichidagi papkada bo'lsa (masalan `bot/`), o'zi topadi yoki qo'lda kiritasiz.
+* **Ishga tushirish:** `Procfile` (`web:` / `worker:`) yoki `start.sh`; Python versiyasi `runtime.txt` /
+  `.python-version` dan olinadi.
+* **Sayt yoki yo'q:** veb-frameworklar doim sayt; bot faqat webhook server bo'lsa sayt, polling bot ichkarida ishlaydi.
+  Sozlamalarda «Avto / Ha / Yo'q» bilan o'zgartirish mumkin.
+* **Tezlik:** kutubxonalar alohida qatlamda keshlanadi — faqat kod o'zgarsa, qayta yig'ish bir necha soniya.
+* **GitHub webhook:** loyiha sozlamalarida yoqing va URL + Secret'ni GitHub → Settings → Webhooks'ga qo'shing —
+  har push darhol deploy qilinadi (domen ulangan bo'lishi kerak). Domensiz avto-deploy har 5 daqiqada tekshiradi.
+
 ## Kundalik buyruqlar (SSH orqali)
 
 ```bash

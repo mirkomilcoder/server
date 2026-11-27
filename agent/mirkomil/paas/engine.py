@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .detect import DetectError, detect, is_public
+from .detect import DetectError, detect, find_root, is_public, valid_root_dir
 
 APPS = Path(os.environ.get("MK_APPS_DIR", "/var/lib/mirkomil/apps"))
 PROXY = Path(os.environ.get("MK_PROXY_DIR", "/var/lib/mirkomil/proxy"))
@@ -83,7 +83,11 @@ def validate_spec(s: dict[str, Any]) -> dict[str, Any]:
         "image": s.get("image") or None,  # rollback: reuse an existing image
         # publish as a site: None = default for the type (see detect.is_public)
         "public": None if s.get("public") is None else bool(s.get("public")),
+        # project folder inside the repo (monorepo); "" = repo root or found automatically
+        "root_dir": str(s.get("root_dir") or "").strip().strip("/"),
     }
+    if not valid_root_dir(out["root_dir"]):
+        raise DeployError("papka nomi noto'g'ri (masalan: bot yoki apps/web)")
     if not APP_RE.match(out["app"]):
         raise DeployError("ilova nomi: 3–32 belgi, kichik harf/raqam/chiziqcha, harf bilan boshlansin")
     if not out["image"] and not REPO_RE.match(out["repo"]):
@@ -256,6 +260,20 @@ class Job:
     def finish(self, state: str, **extra: Any) -> None:
         self.status.update(state=state, finished=int(time.time()), **extra)
         self.save()
+
+
+def with_commands(dockerfile: str, commands: dict[str, str], shell: str) -> str:
+    """Replace the template's CMD with the Procfile's processes (web first) or start.sh.
+    Several processes run side by side; if one stops, the container stops and Docker restarts it."""
+    procs = [commands[k] for k in sorted(commands, key=lambda k: (k != "web", k))]
+    if len(procs) == 1:
+        script = f"exec {procs[0]}"
+    elif shell == "bash":
+        script = " & ".join(procs) + " & wait -n; exit 1"
+    else:
+        script = " & ".join(procs) + " & wait"
+    body = re.sub(r"^CMD .*$\n?", "", dockerfile, flags=re.M).rstrip("\n")
+    return body + "\n" + "CMD " + json.dumps([shell, "-c", script]) + "\n"
 
 
 def clone_error(out: str, repo: str, branch: str) -> str:
@@ -431,7 +449,9 @@ def healthy(job: Job, name: str, port: int, web: bool, wait_s: int = 60) -> bool
                 return True
         time.sleep(2)
     if web:
-        job.log(f"health: {wait_s}s ichida {name}:{port} HTTP javob bermadi")
+        job.log(f"health: {wait_s}s ichida {name}:{port} HTTP javob bermadi.\n"
+                f"  Sayt 0.0.0.0 manzilida va PORT muhit o'zgaruvchisidagi portda ({port}) tinglashi kerak.\n"
+                f"  Bu sayt bo'lmasa (masalan polling bot), loyiha sozlamalarida «Sayt sifatida ochish» → Yo'q.")
         return False
     job.log("health: bot 15 soniya barqaror ishladi")
     return True
@@ -458,7 +478,8 @@ def deploy(spec_path: Path) -> int:
             job.step("rollback", f"Oldingi versiyaga qaytish: {image}")
             prev = json.loads((adir / "deploys" / image.split(":")[1] / "status.json").read_text())
             det_type, port = prev.get("type", "dockerfile"), int(prev.get("port") or 8000)
-            web = is_public(det_type, spec["public"])
+            site_auto, site_reason = prev.get("site_auto"), prev.get("site_reason", "")
+            web = is_public(det_type, spec["public"], site_auto)
             commit = prev.get("commit", "")
         else:
             job.step("clone", f"Kod yuklanmoqda: {spec['repo']} ({spec['branch']})")
@@ -475,33 +496,52 @@ def deploy(spec_path: Path) -> int:
             job.log(f"commit: {commit}")
 
             job.step("detect", "Loyiha turi aniqlanmoqda")
+            rd = spec["root_dir"]
+            if not rd:
+                rd, why = find_root(src)
+                if why:
+                    job.log(why)
+            ctx = (src / rd).resolve() if rd else src
+            if not ctx.is_dir() or not ctx.is_relative_to(src.resolve()):
+                raise DeployError(f"«{rd}» papkasi repoda yo'q")
+            job.status["root_dir"] = rd
             try:
-                d = detect(src, spec["type"])
+                d = detect(ctx, spec["type"])
             except DetectError as e:
-                raise DeployError(str(e))
-            det_type, web = d.type, is_public(d.type, spec["public"])
+                raise DeployError(str(e) + ("" if rd else " (loyiha ichki papkada bo'lsa, sozlamalarda «Papka»ni kiriting)"))
+            det_type, site_auto, site_reason = d.type, d.site, d.site_reason
+            web = is_public(d.type, spec["public"], site_auto)
             job.log(f"tur: {d.type}" + (f" ({d.note})" if d.note else ""))
-            job.log("sayt: " + (f"ha — {app}.{spec['domain']} (PORT muhit o'zgaruvchisidagi portda tinglashi kerak)"
-                                if web else "yo'q — ichki ishlaydi (bot / fon jarayoni), tashqaridan ochilmaydi"))
-            if not (src / ".dockerignore").exists():
-                shutil.copy(TEMPLATES / "dockerignore", src / ".dockerignore")
-            dockerfile = src / "Dockerfile"
+        how = ("siz tanlagansiz" if spec["public"] is not None and det_type not in ("django", "fastapi", "flask", "static")
+               else site_reason or "turiga qarab")
+        job.log("sayt: " + (f"ha — {app}.{spec['domain']}" if web else "yo'q — ichki ishlaydi, tashqaridan ochilmaydi")
+                + f" ({how})")
+        if not image:
+            if not (ctx / ".dockerignore").exists():
+                shutil.copy(TEMPLATES / "dockerignore", ctx / ".dockerignore")
+            dockerfile = ctx / "Dockerfile"
             if d.type != "dockerfile":
                 text = (TEMPLATES / f"{d.type}.Dockerfile").read_text()
                 for k, v in d.vars.items():
                     text = text.replace("{{" + k + "}}", v)
+                if d.commands:
+                    text = with_commands(text, d.commands, "sh" if d.type == "node" else "bash")
+                    job.log("ishga tushirish: " + " | ".join(f"{k}: {v}" for k, v in d.commands.items()))
+                if "PY" in d.vars:
+                    job.log(f"python: {d.vars['PY']}")
                 dockerfile = job.dir / "Dockerfile"
                 dockerfile.write_text(text)
 
             job.step("build", "Docker obraz yig'ilmoqda (bir necha daqiqa olishi mumkin)")
             image = f"mirkomil/app-{app}:{did}"
             sh(job, ["docker", "build", "-t", image, "-f", str(dockerfile),
-                     "--label", f"mirkomil.app={app}", "--label", f"mirkomil.deploy={did}", str(src)],
+                     "--label", f"mirkomil.app={app}", "--label", f"mirkomil.deploy={did}", str(ctx)],
                timeout=1800, env={"DOCKER_BUILDKIT": "1"})
             # our templates always listen on 8000; a repo's own Dockerfile: its EXPOSEd port
             port = spec["port"] or (8000 if d.type != "dockerfile" else image_port(image)) or 8000
 
-        job.status.update(type=det_type, web=web, port=port, commit=commit, image=image)
+        job.status.update(type=det_type, web=web, port=port, commit=commit, image=image,
+                          site_auto=site_auto, site_reason=site_reason)
         job.save()
 
         job.step("proxy", "Ichki router (Caddy) tekshirilmoqda")

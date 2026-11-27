@@ -143,6 +143,7 @@ async def run_loop(state: GuardianState, stop: asyncio.Event) -> None:
     last_prune = 0.0
     last_auto = time.time()  # first auto-deploy check after one interval, not at startup
     from .paas.api_apps import AUTODEPLOY_EVERY_S, autodeploy_tick
+    from .paas.hooks import pending_tick
     while not stop.is_set():
         try:
             fast = await loop.run_in_executor(None, state.collect_fast)
@@ -157,6 +158,7 @@ async def run_loop(state: GuardianState, stop: asyncio.Event) -> None:
             if transitions:
                 await loop.run_in_executor(None, state.alert, transitions)
             await loop.run_in_executor(None, state.heal)
+            await loop.run_in_executor(None, pending_tick, state)
             if time.time() - last_auto >= AUTODEPLOY_EVERY_S:
                 last_auto = time.time()
                 await loop.run_in_executor(None, autodeploy_tick, state)
@@ -204,6 +206,8 @@ async def main_async() -> None:
     state = GuardianState(cfg, db)
     db.add_event("info", "info", "Guardian ishga tushdi")
     server = await serve(RUN / "api.sock", state)
+    from .paas import hooks
+    hook_server = await hooks.serve(state)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     import signal
@@ -219,4 +223,6 @@ async def main_async() -> None:
 
     async with server:
         await asyncio.gather(run_loop(state, stop), watchdog())
+    if hook_server:
+        hook_server.close()
     db.add_event("info", "info", "Guardian to'xtadi")

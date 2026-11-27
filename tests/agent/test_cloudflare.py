@@ -105,20 +105,20 @@ def test_ingress_panel_first_with_access_and_404_last():
     assert ing[-1] == {"service": "http_status:404"}
     root = next(r for r in ing if r.get("hostname") == "d.uz")
     assert root["originRequest"]["httpHostHeader"] == "shop.d.uz"
-    assert all(r["service"] == "http://localhost:8088" for r in ing[1:-1])
-    assert hosts_of(ing) == ["panel.d.uz", "shop.d.uz", "d.uz"]
+    assert all(r["service"] == "http://localhost:8088" for r in ing[2:-1])
+    assert hosts_of(ing) == ["panel.d.uz", "hooks.d.uz", "shop.d.uz", "d.uz"]
 
 
 def test_root_app_ignored_when_unknown():
     ing = build_ingress("d.uz", {}, "t.cloudflareaccess.com", "AUD", "missing")
-    assert hosts_of(ing) == ["panel.d.uz"]
+    assert hosts_of(ing) == ["panel.d.uz", "hooks.d.uz"]
 
 
 def test_setup_end_to_end_and_secrets_private(env):
     api = FakeAPI()
     out = cfm.setup(TOKEN, "example.uz", ["Admin@Example.com"], root_app="site", requester=api)
     assert out["configured"]
-    assert set(api.dns) == {"panel.example.uz", "shop.example.uz", "site.example.uz", "example.uz"}
+    assert set(api.dns) == {"panel.example.uz", "hooks.example.uz", "shop.example.uz", "site.example.uz", "example.uz"}
     assert "www.customer.com" not in api.dns  # outside the zone: never touched
     assert all(r["proxied"] and r["content"] == "TUN.cfargotunnel.com" and r["comment"] == "mirkomil" for r in api.dns.values())
     assert api.apps[0]["session_duration"] == "168h"
@@ -147,7 +147,7 @@ def test_sync_removes_only_own_records_and_never_overwrites_foreign(env):
     out = cfm.sync(requester=api)
     assert "site.example.uz" in out["dns"]["removed"]
     assert "shop.example.uz" in api.dns  # foreign record stays
-    assert set(api.dns) == {"panel.example.uz", "shop.example.uz"}
+    assert set(api.dns) == {"panel.example.uz", "hooks.example.uz", "shop.example.uz"}
 
 
 def test_setup_errors_are_clear(env):

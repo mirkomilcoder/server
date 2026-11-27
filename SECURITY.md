@@ -50,6 +50,12 @@ only the access it needs**, and that the web UI cannot become a remote shell.
   current password; the passwords are written only to that pty.
 * Admin mode → by default Cockpit asks for the Linux password every time admin mode is switched
   on; "Admin rejimini eslab qolish" (opt-in) lets Cockpit re-enable it at login with the login password.
+* GitHub webhooks → a listener inside Guardian bound to 127.0.0.1:8099 only, reachable from the
+  internet solely through the Cloudflare Tunnel host `hooks.<domain>`. It accepts nothing but
+  `POST /github/<app>` (body ≤ 5 MB); each app has its own random secret and the
+  `X-Hub-Signature-256` HMAC is verified in constant time before the body is parsed. Unknown apps,
+  apps without a webhook and bad signatures get the same terse answer. Only a push to the app's
+  configured branch starts a deploy; concurrent pushes are queued, never run in parallel.
 * Apps as sites → web frameworks (Django, FastAPI, Flask, static) are always published; bots and
   workers (e.g. aiogram) stay private unless explicitly published (e.g. for a webhook).
 * SSH brute force → key-only login (enabled only after key login is proven to work), fail2ban with

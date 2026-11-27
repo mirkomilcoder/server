@@ -170,6 +170,8 @@ def build_ingress(domain: str, routes: dict[str, Any], team: str, aud: str, root
         "originRequest": {"noTLSVerify": True,  # Cockpit's self-signed cert, over localhost only
                           "access": {"required": True, "teamName": team.split(".")[0], "audTag": [aud]}},
     }]
+    # GitHub webhooks: only POST /github/<app> with a valid per-app HMAC is accepted there
+    rules.append({"hostname": f"hooks.{domain}", "service": "http://localhost:8099"})
     for app, r in sorted(routes.items()):
         for h in r.get("hosts", []):
             rules.append({"hostname": h, "service": "http://localhost:8088", "originRequest": {"httpHostHeader": h}})

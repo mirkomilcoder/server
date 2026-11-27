@@ -13,10 +13,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Card, MotionGrid } from '@/widgets/Card';
 import { DeployLog } from '@/widgets/DeployLog';
 import { EnvEditor } from '@/widgets/EnvEditor';
+import { WebhookCard } from '@/widgets/WebhookCard';
 import { NewAppWizard } from '@/widgets/NewAppWizard';
 import { RowsSkeleton } from '@/widgets/Skeletons';
 import { timeAgo } from '@/widgets/home';
 import type { PageProps } from './registry';
+import { ROOT_DIR_RE } from '@/api/validate';
 
 /*
  * Render-like projects: list → details (overview + deploy history with
@@ -229,9 +231,12 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
   const [mem, setMem] = useState(a.mem_mb);
   const [cpus, setCpus] = useState(a.cpus);
   const [port, setPort] = useState(a.port);
+  const [rootDir, setRootDir] = useState(a.root_dir ?? '');
+  const rootOk = ROOT_DIR_RE.test(rootDir.replace(/^\/+|\/+$/g, ''));
   const save = async () => {
     try {
-      await apps.settings(a.name, { branch, type: type || null, mem_mb: mem, cpus, port });
+      if (!rootOk) return;
+      await apps.settings(a.name, { branch, type: type || null, mem_mb: mem, cpus, port, root_dir: rootDir.replace(/^\/+|\/+$/g, '') });
       toast({ kind: 'success', title: t('app.settings.saved') });
       onSaved();
     } catch (e) {
@@ -244,6 +249,10 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
         <div className="wizard__row">
           <label className="field"><span className="field__label">{t('wizard.branch')}</span>
             <input className="input input--plain mono" value={branch} onChange={(e) => setBranch(e.target.value)} /></label>
+          <label className="field"><span className="field__label">{t('wizard.rootDir')}</span>
+            <input className="input input--plain mono" value={rootDir} placeholder={t('wizard.rootDirAuto')} onChange={(e) => setRootDir(e.target.value)}
+              aria-invalid={!rootOk} />
+            <span className={rootOk ? 'card__meta' : 'form-error'}>{rootOk ? t('wizard.rootDirHint') : t('wizard.rootDirBad')}</span></label>
           <label className="field"><span className="field__label">{t('wizard.type')}</span>
             <select className="select" value={type} onChange={(e) => setType(e.target.value as AppType | '')}>
               <option value="">{t('wizard.typeAuto')}</option>
@@ -265,6 +274,7 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
       </Card>
       <SiteCard a={a} onSaved={onSaved} />
       <AutoDeployCard a={a} onSaved={onSaved} />
+      <WebhookCard a={a} />
       <DeployKeyCard name={a.name} />
       <Card className="danger-zone" title={t('app.delete')}>
         <p className="muted" style={{ marginBottom: 12 }}>{t('app.delete.body', { name: a.name })}</p>
@@ -277,8 +287,9 @@ function SettingsTab({ a, isAdmin, onSaved, onDelete }: { a: AppDetail; isAdmin:
 }
 
 /**
- * Publish as a site (<app>.<domain>)? Web frameworks always are; bots (aiogram…) only
- * when switched on, e.g. for a webhook. Applying redeploys the current image (no rebuild).
+ * Publish as a site (<app>.<domain>)? Web frameworks always are. Otherwise "Avto"
+ * follows the code (a webhook bot or a web server → site, a polling bot → private);
+ * "Ha"/"Yo'q" override it. Applying re-runs the current image (no rebuild).
  */
 function SiteCard({ a, onSaved }: { a: AppDetail; onSaved: () => void }) {
   const { t } = useT();
@@ -286,14 +297,19 @@ function SiteCard({ a, onSaved }: { a: AppDetail; onSaved: () => void }) {
   const required = a.site_mode === 'required';
   const kind = a.current?.type ?? a.type;
   const live = !!a.current?.web;
+  const cur = a.deploys.find((d) => d.id === a.current?.deploy_id) ?? a.deploys.find((d) => d.state === 'success');
+  const choice: 'auto' | 'yes' | 'no' = a.public == null ? 'auto' : a.public ? 'yes' : 'no';
   const [busy, setBusy] = useState(false);
-  const apply = async (v: boolean) => {
+
+  const apply = async (v: 'auto' | 'yes' | 'no') => {
+    if (v === choice) return;
     setBusy(true);
     try {
-      await apps.setPublic(a.name, v);
-      if (a.current?.deploy_id && v !== live) {
+      await apps.setPublic(a.name, v === 'auto' ? null : v === 'yes');
+      const next = v === 'auto' ? (cur?.site_auto ?? live) : v === 'yes';
+      if (a.current?.deploy_id && next !== live) {
         await apps.rollback(a.name, a.current.deploy_id);
-        toast({ kind: 'success', title: v ? t('site.publishing') : t('site.unpublishing') });
+        toast({ kind: 'success', title: next ? t('site.publishing') : t('site.unpublishing') });
       } else {
         toast({ kind: 'success', title: t('site.saved') });
       }
@@ -304,19 +320,25 @@ function SiteCard({ a, onSaved }: { a: AppDetail; onSaved: () => void }) {
       setBusy(false);
     }
   };
+
   return (
-    <Card title={t('site.title')} tools={
-      <label className="switch" title={required ? t('site.requiredShort') : undefined}>
-        <input type="checkbox" role="switch" checked={required || live} disabled={required || busy}
-          onChange={(e) => apply(e.target.checked)} aria-label={t('site.title')} />
-        <span className="switch__track" aria-hidden />
-      </label>
-    }>
-      <p className="muted">
-        {required ? t('site.required', { type: kind ? t(`type.${kind}` as TranslationKey) : '' })
-          : kind === 'bot' ? t('site.bot') : t('site.optional')}
-      </p>
-      {!required && <p className="card__meta">{t('site.portHint')}</p>}
+    <Card title={t('site.title')} tools={<span className={`pill${live ? ' pill--success' : ''}`}>{live ? t('site.isSite') : t('site.isPrivate')}</span>}>
+      {required ? (
+        <p className="muted">{t('site.required', { type: kind ? t(`type.${kind}` as TranslationKey) : '' })}</p>
+      ) : (
+        <>
+          <div className="choices" role="radiogroup" aria-label={t('site.title')}>
+            {(['auto', 'yes', 'no'] as const).map((v) => (
+              <button key={v} type="button" className="choice" role="radio" aria-checked={choice === v} aria-pressed={choice === v}
+                disabled={busy} onClick={() => apply(v)}>{t(`site.choice.${v}`)}</button>
+            ))}
+          </div>
+          <p className="card__meta">
+            {cur?.site_reason ? t('site.reason', { reason: cur.site_reason }) : kind === 'bot' ? t('site.bot') : t('site.autoHint')}
+          </p>
+          <p className="card__meta">{t('site.portHint')}</p>
+        </>
+      )}
     </Card>
   );
 }

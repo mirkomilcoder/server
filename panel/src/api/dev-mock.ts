@@ -247,6 +247,11 @@ function http(): ReturnType<Cockpit['http']> {
     '/v1/tunnel': () => ({ configured: true, domain: 'mirkomil-host.uz', panel_host: 'panel.mirkomil-host.uz', team: 'mirkomil.cloudflareaccess.com',
       hosts: ['panel.mirkomil-host.uz', 'milano-kafe.mirkomil-host.uz', 'kino-bot.mirkomil-host.uz', 'mirkomil-host.uz'],
       emails: ['admin@example.com'], root_app: 'milano-kafe', status: 'healthy', connections: 4, service: 'active' }),
+    '/v1/apps/milano-kafe/webhook': () => ({ enabled: true, url: 'https://hooks.mirkomil-host.uz/github/milano-kafe', pending: null, deliveries: [
+      { ts: now() - 120, event: 'push', result: 'deployed', detail: '3f9c2e1 Menyu sahifasi' },
+      { ts: now() - 3600, event: 'push', result: 'ignored', detail: "dev branch — kuzatilmaydi (main)" },
+      { ts: now() - 7200, event: 'ping', result: 'ok', detail: 'GitHub ulanishni tekshirdi' },
+    ] }),
     '/v1/users': () => ({ users: [
       { user: 'home-server', uid: 1000, name: 'Mirkomil', role: 'admin', owner: true, managed: true, locked: false, must_change: false,
         groups: ['adm'], email: null, invited_by: null, invited_at: null, apps: [] },
@@ -278,6 +283,7 @@ function http(): ReturnType<Cockpit['http']> {
     },
     post: async (path, body) => {
       const b = JSON.parse(String(body ?? '{}')) as { mode?: string; rule?: string; enabled?: boolean; user?: string; role?: string };
+      if (path.endsWith('/webhook/reveal')) return JSON.stringify({ secret: '9f2c4e7a1b3d5f6e8a0c2e4b6d8f0a1c3e5b7d9f1a2c4e6b' });
       if (path.endsWith('/env/reveal')) {
         return JSON.stringify({ env: [{ key: 'DATABASE_URL', value: 'postgresql://app:Xk29fLq7@mk-db-shop-db:5432/shop' },
           { key: 'SECRET_KEY', value: 'django-insecure-9f8a7s6d5f4g3h2j1k' }, { key: 'DEBUG', value: 'False' }] });

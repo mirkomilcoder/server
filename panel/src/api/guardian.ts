@@ -130,6 +130,9 @@ export interface DeployStatus {
   image?: string;
   error?: string;
   url?: string;
+  /** what the code showed: does it serve HTTP? (null = can't tell) and why */
+  site_auto?: boolean | null;
+  site_reason?: string;
 }
 
 export interface AppInfo {
@@ -141,6 +144,7 @@ export interface AppInfo {
   mem_mb: number;
   cpus: number;
   autodeploy?: number;
+  root_dir?: string;
   /** Published as a site: null = default for the type, 1 = yes, 0 = no. */
   public?: number | null;
   /** required = web framework (always a site) · optional = bot/worker/other · auto = type unknown yet */
@@ -169,6 +173,18 @@ export interface NewApp {
   env: Record<string, string>;
   /** null = default for the detected type (web frameworks: yes, bots: no). */
   public?: boolean | null;
+  /** project folder inside the repo ("" = root, or found automatically) */
+  root_dir?: string;
+}
+
+export interface WebhookInfo {
+  enabled: boolean;
+  /** https://hooks.<domain>/github/<app>; null until a domain is connected */
+  url: string | null;
+  deliveries: { ts: number; event: string; result: 'deployed' | 'queued' | 'ignored' | 'rejected' | 'failed' | 'ok'; detail: string }[];
+  pending: { sha: string; who: string; ts: number } | null;
+  /** only right after enabling / rotating */
+  secret?: string;
 }
 
 export interface DockerContainer {
@@ -193,11 +209,14 @@ export const apps = {
   logs: (name: string, lines = 300) => get<{ text: string }>(`/v1/apps/${encodeURIComponent(name)}/logs`, { lines: String(lines) }),
   setEnv: (name: string, env: Record<string, string>, keep: string[]) =>
     post<{ env: { key: string; length: number }[] }>(`/v1/apps/${encodeURIComponent(name)}/env`, { env, keep }),
-  settings: (name: string, s: Partial<Pick<NewApp, 'branch' | 'type' | 'port' | 'mem_mb' | 'cpus'>>) =>
+  settings: (name: string, s: Partial<Pick<NewApp, 'branch' | 'type' | 'port' | 'mem_mb' | 'cpus' | 'root_dir'>>) =>
     post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, s),
   remove: (name: string, confirm: string) => post<{ deleted: string }>(`/v1/apps/${encodeURIComponent(name)}/delete`, { confirm }),
   deployKey: (name: string) => post<{ public_key: string }>(`/v1/apps/${encodeURIComponent(name)}/deploykey`, {}),
   setAutodeploy: (name: string, on: boolean) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { autodeploy: on }),
+  webhook: (name: string) => get<WebhookInfo>(`/v1/apps/${encodeURIComponent(name)}/webhook`),
+  setWebhook: (name: string, b: { enabled?: boolean; rotate?: boolean }) => post<WebhookInfo>(`/v1/apps/${encodeURIComponent(name)}/webhook`, b),
+  webhookReveal: (name: string) => post<{ secret: string }>(`/v1/apps/${encodeURIComponent(name)}/webhook/reveal`, {}),
   /** Current env values (developers with access to the app; logged in the activity feed). */
   revealEnv: (name: string) => post<{ env: { key: string; value: string }[] }>(`/v1/apps/${encodeURIComponent(name)}/env/reveal`, {}),
   setPublic: (name: string, on: boolean | null) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { public: on }),

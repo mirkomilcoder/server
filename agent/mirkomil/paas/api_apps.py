@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -77,6 +78,11 @@ def _validate_settings(b: dict[str, Any], partial: bool = False) -> dict[str, An
             out[key] = v
     if "autodeploy" in b:
         out["autodeploy"] = 1 if b.get("autodeploy") else 0
+    if "root_dir" in b:
+        from .detect import valid_root_dir
+        out["root_dir"] = str(b.get("root_dir") or "").strip().strip("/")
+        if not valid_root_dir(out["root_dir"]):
+            raise HttpError(400, "papka nomi noto'g'ri (masalan: bot yoki apps/web)")
     if "public" in b:
         # None = default for the type; web frameworks are always public (detect.is_public)
         out["public"] = None if b.get("public") is None else (1 if b.get("public") else 0)
@@ -111,7 +117,7 @@ def autodeploy_tick(state: Any) -> list[str]:
         if last_any and last_any.get("state") == "failed" and last_any.get("commit_sha") == sha:
             continue
         try:
-            res = helper.call("app.deploy", {**{k: a.get(k) for k in ("repo", "branch", "type", "port", "mem_mb", "cpus", "public")},
+            res = helper.call("app.deploy", {**{k: a.get(k) for k in ("repo", "branch", "type", "port", "mem_mb", "cpus", "public", "root_dir")},
                                              "app": a["name"], "domain": state.cfg.domain, "by": "auto"}, timeout=60)
         except Exception:
             continue
@@ -146,6 +152,10 @@ def register(api: Any, state: Any) -> None:
         db.conn.execute("ALTER TABLE apps ADD COLUMN autodeploy INTEGER NOT NULL DEFAULT 0")
     if "public" not in cols:  # NULL = default for the app type
         db.conn.execute("ALTER TABLE apps ADD COLUMN public INTEGER")
+    if "hook_secret" not in cols:  # GitHub webhook secret (NULL = webhook off)
+        db.conn.execute("ALTER TABLE apps ADD COLUMN hook_secret TEXT")
+    if "root_dir" not in cols:  # project folder inside the repo ("" = root / automatic)
+        db.conn.execute("ALTER TABLE apps ADD COLUMN root_dir TEXT NOT NULL DEFAULT ''")
     loop_call = lambda fn: asyncio.get_running_loop().run_in_executor(None, fn)  # noqa: E731
 
     async def h(verb: str, args: dict[str, Any] | None = None, timeout: float = 120) -> Any:
@@ -172,7 +182,7 @@ def register(api: Any, state: Any) -> None:
         return dict(row)
 
     async def start_deploy(app: dict[str, Any], by: str, image: str | None = None) -> Any:
-        res = await h("app.deploy", {**{k: app.get(k) for k in ("repo", "branch", "type", "port", "mem_mb", "cpus", "public")},
+        res = await h("app.deploy", {**{k: app.get(k) for k in ("repo", "branch", "type", "port", "mem_mb", "cpus", "public", "root_dir")},
                                      "app": app["name"], "domain": state.cfg.domain, "by": by, "image": image})
         title = f"Deploy boshlandi: {app['name']}" if not image else f"Rollback boshlandi: {app['name']}"
         db.add_event("action", "info", title, res.get("deploy_id", ""), check_id=f"app:{app['name']}", actor=by)
@@ -192,6 +202,7 @@ def register(api: Any, state: Any) -> None:
                 continue
             cur = _read_json(APPS / a["name"] / "current.json") or {}
             deps = deploys_of(a["name"], 1)
+            a["hook"] = bool(a.pop("hook_secret", None))
             a["site_mode"] = site_mode(cur.get("type") or a.get("type"))
             a.update(current=cur, last_deploy=deps[0] if deps else None,
                      url=f"http://{a['name']}.{state.cfg.domain}" if cur.get("web") else None,
@@ -211,9 +222,11 @@ def register(api: Any, state: Any) -> None:
         s = _validate_settings(b)
         env = _validate_env(b.get("env"))
         await h("app.env.set", {"app": name, "env": env, "keep": []})
-        public = _validate_settings({"public": b.get("public")}, partial=True)["public"] if "public" in b else None
-        db.conn.execute("INSERT INTO apps (name, repo, branch, type, port, mem_mb, cpus, public, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                        (name, s["repo"], s["branch"], s["type"], s["port"], s["mem_mb"], s["cpus"], public, p.user, int(time.time())))
+        extra = _validate_settings({k: b[k] for k in ("public", "root_dir") if k in b}, partial=True)
+        db.conn.execute("INSERT INTO apps (name, repo, branch, type, port, mem_mb, cpus, public, root_dir, created_by, created_at) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (name, s["repo"], s["branch"], s["type"], s["port"], s["mem_mb"], s["cpus"], extra.get("public"),
+                         extra.get("root_dir", ""), p.user, int(time.time())))
         db.add_event("action", "info", f"Yangi ilova: {name}", s["repo"], check_id=f"app:{name}", actor=p.user)
         return await start_deploy(get_app(name, p), p.user)
 
@@ -222,6 +235,7 @@ def register(api: Any, state: Any) -> None:
         a = get_app(q["name"], p)
         keys = await h("app.env.keys", {"app": a["name"]})
         cur = _read_json(APPS / a["name"] / "current.json") or {}
+        a["hook"] = bool(a.pop("hook_secret", None))
         return {**a, "current": cur, "deploys": deploys_of(a["name"]), "env": keys,
                 "site_mode": site_mode(cur.get("type") or a.get("type")),
                 "url": f"http://{a['name']}.{state.cfg.domain}" if cur.get("web") else None}
@@ -234,7 +248,9 @@ def register(api: Any, state: Any) -> None:
             sets = ", ".join(f"{k} = ?" for k in s)
             db.conn.execute(f"UPDATE apps SET {sets} WHERE name = ?", (*s.values(), a["name"]))  # keys are fixed names
             db.add_event("action", "info", f"Ilova sozlamalari o'zgardi: {a['name']}", ", ".join(s), check_id=f"app:{a['name']}", actor=p.user)
-        return get_app(a["name"], p)
+        out = get_app(a["name"], p)
+        out["hook"] = bool(out.pop("hook_secret", None))  # the secret only via /webhook/reveal
+        return out
 
     @api.route("POST", "/v1/apps/{name}/deploy", role="developer")
     async def redeploy(p: Peer, q: dict[str, str], _b: Any) -> Any:
@@ -307,6 +323,52 @@ def register(api: Any, state: Any) -> None:
         db.add_event("action", "warn", f"Env qiymatlari ko'rildi: {a['name']}", f"{len(env)} ta kalit",
                      check_id=f"app:{a['name']}", actor=p.user)
         return {"env": [{"key": k, "value": v} for k, v in env.items()]}
+
+    # ---- GitHub webhook (push → deploy) ----
+
+    def hook_url(name: str) -> str | None:
+        """Public URL through the Cloudflare Tunnel; None until a domain is connected."""
+        try:
+            st = json.loads((Path(os.environ.get("MK_TUNNEL_DIR", "/var/lib/mirkomil/tunnel")) / "state.json").read_text())
+        except (OSError, ValueError):
+            return None
+        return f"https://hooks.{st['domain']}/github/{name}" if st.get("tunnel_id") and st.get("domain") else None
+
+    def hook_info(a: dict[str, Any]) -> dict[str, Any]:
+        return {"enabled": bool(a.get("hook_secret")), "url": hook_url(a["name"]),
+                "deliveries": db.get(f"hook_log:{a['name']}", []), "pending": db.get(f"hook_pending:{a['name']}")}
+
+    @api.route("GET", "/v1/apps/{name}/webhook")
+    async def webhook_get(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        return hook_info(get_app(q["name"], p))
+
+    @api.route("POST", "/v1/apps/{name}/webhook", role="developer")
+    async def webhook_set(p: Peer, q: dict[str, str], b: Any) -> Any:
+        """{"enabled": true} creates a secret (shown once here), {"rotate": true} replaces it, false turns it off."""
+        from .hooks import new_secret
+        a = get_app(q["name"], p)
+        b = b if isinstance(b, dict) else {}
+        secret = None
+        if b.get("enabled") is False:
+            db.conn.execute("UPDATE apps SET hook_secret = NULL WHERE name = ?", (a["name"],))
+            db.add_event("action", "info", f"Webhook o'chirildi: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
+        elif b.get("rotate") or not a.get("hook_secret"):
+            secret = new_secret()
+            db.conn.execute("UPDATE apps SET hook_secret = ? WHERE name = ?", (secret, a["name"]))
+            db.add_event("action", "info", f"Webhook {'kaliti yangilandi' if a.get('hook_secret') else 'yoqildi'}: {a['name']}",
+                         check_id=f"app:{a['name']}", actor=p.user)
+        out = hook_info(get_app(a["name"], p))
+        if secret:
+            out["secret"] = secret
+        return out
+
+    @api.route("POST", "/v1/apps/{name}/webhook/reveal", role="developer")
+    async def webhook_reveal(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        a = get_app(q["name"], p)
+        if not a.get("hook_secret"):
+            raise HttpError(400, "webhook yoqilmagan")
+        db.add_event("action", "warn", f"Webhook kaliti ko'rildi: {a['name']}", check_id=f"app:{a['name']}", actor=p.user)
+        return {"secret": a["hook_secret"]}
 
     @api.route("POST", "/v1/apps/{name}/delete", role="admin")
     async def delete(p: Peer, q: dict[str, str], b: Any) -> Any:

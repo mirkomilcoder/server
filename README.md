@@ -24,7 +24,7 @@ chiroyli boshqaruv paneli bilan (Cockpit plagini).
 Talab: toza **Ubuntu Server 26.04 LTS**, internet, `sudo` huquqli foydalanuvchi.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MirkomilCoder/mirkomil-server/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/mirkomilcoder/server/main/install.sh | sudo bash
 ```
 
 Dastur bir nechta savol beradi (server nomi, administrator, vaqt mintaqasi, domen, Tailscale, Telegram)

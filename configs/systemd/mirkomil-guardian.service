@@ -1,7 +1,7 @@
 # Managed by mirkomil-server — edits are overwritten by install.sh
 [Unit]
 Description=Mirkomil Guardian (monitoring, alerts, local API)
-Documentation=https://github.com/MirkomilCoder/mirkomil-server
+Documentation=https://github.com/mirkomilcoder/server
 After=network-online.target mirkomil-helper.service
 Wants=network-online.target mirkomil-helper.service
 

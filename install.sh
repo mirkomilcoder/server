@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Mirkomil Server — bootstrap installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/MirkomilCoder/mirkomil-server/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/mirkomilcoder/server/main/install.sh | sudo bash
 #
 # What this small script does:
 #   1. checks it runs as root;
@@ -11,7 +11,7 @@
 #   3. places it in /opt/mirkomil/src and runs installer/main.sh with your arguments.
 set -Eeuo pipefail
 
-REPO="${MK_REPO:-MirkomilCoder/mirkomil-server}"
+REPO="${MK_REPO:-mirkomilcoder/server}"
 # Default: latest GitHub release (includes the prebuilt panel). MK_REF=<branch|tag> pins a source tarball.
 REF="${MK_REF:-}"
 DEST=/opt/mirkomil/src

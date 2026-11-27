@@ -2,6 +2,7 @@
 # 90 — Public access through Cloudflare Tunnel (outbound only, no open ports).
 # Installs cloudflared from Cloudflare's signed repo and the tunnel unit.
 # The tunnel itself is configured from the panel (Domenlar & SSL) with an API token.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Internetga chiqish: Cloudflare Tunnel"
 
 module_run() {

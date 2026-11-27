@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # 30 — Private network access with Tailscale (no open ports).
 # Tailscale SSH is enabled as a second way in, in case regular SSH breaks.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Tarmoq: Tailscale"
 
 module_run() {

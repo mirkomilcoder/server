@@ -3,6 +3,7 @@
 #
 # Since Cockpit ~3xx there is no "cockpit-pcp" package: the bridge reads PCP
 # archives through python3-pcp, so we install pcp + python3-pcp instead.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Cockpit + metrikalar tarixi (PCP)"
 
 COCKPIT_PACKAGES=(cockpit-ws cockpit-bridge cockpit-system cockpit-storaged cockpit-files pcp python3-pcp)

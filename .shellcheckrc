@@ -1,3 +1,5 @@
 # Modules are sourced by installer/main.sh, which defines the shared helpers.
 external-sources=true
 disable=SC2154
+# U+2018 is part of Uzbek words (o‘, g‘) inside strings, not a mistyped quote
+disable=SC1112

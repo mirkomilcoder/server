@@ -3,6 +3,7 @@
 #
 # The admin user is deliberately NOT added to the "docker" group: membership
 # is equivalent to root. The panel/PaaS talk to Docker through the root helper.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Docker"
 
 module_run() {

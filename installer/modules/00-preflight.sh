@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # 00 — Preflight: refuse politely on anything we don't support. Changes nothing.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Tekshiruv (preflight)"
 
 SUPPORTED_UBUNTU=("26.04")
@@ -39,8 +40,8 @@ module_run() {
 
   if fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; then
     info "apt band (ehtimol avtomatik yangilanish). Kutyapmiz..."
-    local i
-    for i in $(seq 1 60); do fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break; sleep 5; done
+    local _
+    for _ in $(seq 1 60); do fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break; sleep 5; done
   fi
 
   ok "Administrator: $MK_ADMIN_USER"

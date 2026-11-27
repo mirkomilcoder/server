@@ -8,6 +8,7 @@ SRC="$(readlink -f /opt/mirkomil/src 2>/dev/null || true)"
 [[ -f "$SRC/installer/lib/common.sh" ]] || { echo "Mirkomil o'rnatilmagan (/opt/mirkomil/src yo'q)" >&2; exit 1; }
 # shellcheck source=../installer/lib/common.sh
 . "$SRC/installer/lib/common.sh"
+# shellcheck disable=SC2034  # read by common.sh helpers
 MK_LOG=/dev/null  # read-only commands must not write the install log
 
 FAILS=0

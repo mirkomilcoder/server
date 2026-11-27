@@ -6,6 +6,7 @@
 #   - passwords are disabled only after proving that key login works for the
 #     admin user (valid authorized_keys AND a real "Accepted publickey" in the journal);
 #   - sshd -t validates the config before reload; a bad config is rolled back.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Xavfsizlik: firewall, fail2ban, SSH"
 
 module_run() {

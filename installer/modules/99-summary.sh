@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # 99 — Final summary: where to open the panel and what's left to do by hand.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Tayyor"
 
 module_run() {

@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # 10 — Base system: hostname, timezone, updates, base packages, no sleep,
 #      journald limits, sysctl hardening, the `mirkomil` CLI.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Asosiy tizim"
 
 BASE_PACKAGES=(

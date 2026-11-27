@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2034  # shared settings (MK_*, colours) are used by the files that source this one
 # Shared helpers for the Mirkomil Server installer.
 # Sourced by installer/main.sh, the modules, and the `mirkomil` CLI.
 #

@@ -4,6 +4,7 @@
 # The panel is installed system-wide to /usr/share/cockpit/mirkomil, so every
 # Linux user sees it after logging in to Cockpit. It is static files only:
 # no daemon, no port — Cockpit serves it and enforces login/TLS.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Mirkomil Panel"
 
 PANEL_DIR=/usr/share/cockpit/mirkomil

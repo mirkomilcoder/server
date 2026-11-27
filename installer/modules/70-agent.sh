@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # 70 — Guardian agent (user "mirkomil") + root helper + role groups.
+# shellcheck disable=SC2034  # read by installer/main.sh
 MODULE_TITLE="Guardian: monitoring va ogohlantirishlar"
 
 ROLE_GROUPS=(mirkomil-admin mirkomil-dev mirkomil-viewer)
@@ -66,8 +67,8 @@ module_run() {
     run systemctl start mirkomil-helper.service mirkomil-guardian.service
   fi
 
-  local i
-  for i in $(seq 1 20); do [[ -S /run/mirkomil/api.sock ]] && break; sleep 1; done
+  local _
+  for _ in $(seq 1 20); do [[ -S /run/mirkomil/api.sock ]] && break; sleep 1; done
   if curl -fsS --max-time 5 --unix-socket /run/mirkomil/api.sock http://localhost/v1/health >>"$MK_LOG" 2>&1; then
     ok "Guardian ishlayapti (/run/mirkomil/api.sock)"
   else

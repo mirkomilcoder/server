@@ -115,16 +115,3 @@
   .env-item--add .env-item__key-input { grid-column: 1 / -1; }
   .env-item--add .env-item__btns { grid-row: 3; grid-column: 1 / -1; }
 }
-
-/* ---- Super admins + sign-in methods ---- */
-.admin-list { display: grid; gap: 4px; }
-.admin-add { display: flex; gap: 8px; margin-top: 10px; }
-.admin-add .input { flex: 1; min-width: 0; }
-.admin-note { margin-top: 14px; }
-.login-methods { display: grid; gap: 4px; margin: 12px 0; }
-.login-method .list-line { flex-wrap: wrap; gap: 8px; }
-.login-form { margin: 8px 0 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); }
-.login-callback { margin-top: 6px; }
-.login-form, .login-form .howto li { min-width: 0; }
-.login-callback code { white-space: normal; word-break: break-all; }
-.login-method .list-line > span:last-child { flex-wrap: wrap; justify-content: flex-end; }

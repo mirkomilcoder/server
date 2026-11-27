@@ -449,58 +449,22 @@ def register(api: Any, state: Any) -> None:
 
     @api.route("GET", "/v1/tunnel", role="admin")
     async def tunnel_status(p: Peer, _q: dict[str, str], _b: Any) -> Any:
-        from ..api_users import OWNER_KEY
-        out = await h("tunnel.status", timeout=40)
-        out["owner_emails"] = db.get(OWNER_KEY)
-        if out["owner_emails"] is None and out.get("configured"):
-            users = {r[0] for r in db.conn.execute("SELECT email FROM user_meta WHERE email IS NOT NULL").fetchall()}
-            out["owner_emails"] = [e for e in (out.get("emails") or []) if e not in users]
-        return out
+        return await h("tunnel.status", timeout=40)
 
     @api.route("POST", "/v1/tunnel/setup", role="admin")
     async def tunnel_setup(p: Peer, _q: dict[str, str], b: Any) -> Any:
         """The API token passes through to the root helper and is stored root-only; it is never logged or returned."""
-        from ..api_users import EMAIL_RE as USER_EMAIL_RE, OWNER_KEY, allowed_emails
         b = b if isinstance(b, dict) else {}
-        owner = b.get("emails") or []
-        if not isinstance(owner, list) or len(owner) > 50:
-            raise HttpError(400, "emails: ro'yxat kutilgan")
-        owner = sorted({str(e).strip().lower() for e in owner if str(e).strip()})
-        if any(not USER_EMAIL_RE.match(e) for e in owner):
-            raise HttpError(400, "email noto'g'ri")
-        db.put(OWNER_KEY, owner)
-        # only panel users get through: the owner's emails + every user's email (Users page)
-        emails, mode = allowed_emails(db), "emails"
-        if not emails:
-            raise HttpError(400, "kamida bitta email kerak (sizning emailingiz)")
+        emails = b.get("emails")
+        if not isinstance(emails, list) or not emails or len(emails) > 50:
+            raise HttpError(400, "kamida bitta email kerak")
         root = b.get("root_app") or None
         if root is not None:
             root = get_app(str(root))["name"]
         res = await h("tunnel.setup", {"token": str(b.get("token") or ""), "domain": state.cfg.domain,
-                                       "emails": [str(e) for e in emails], "root_app": root,
-                                       "access_mode": mode, "brand": state.cfg.brand}, timeout=120)
-        who = ", ".join(emails)
-        db.add_event("action", "info", f"Cloudflare Tunnel sozlandi: panel.{state.cfg.domain}", f"ruxsat: {who}", actor=p.user)
-        return res
-
-    @api.route("GET", "/v1/login", role="admin")
-    async def login_methods(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
-        """Which sign-in methods the panel offers (Google / GitHub / email code) + the OAuth callback URL."""
-        out = await h("login.status", timeout=40)
-        out["sso"] = os.path.exists("/etc/systemd/system/sockets.target.wants/mirkomil-sso.socket")
-        return out
-
-    @api.route("POST", "/v1/login/provider", role="admin")
-    async def login_provider(p: Peer, _q: dict[str, str], b: Any) -> Any:
-        """The client secret is passed straight to Cloudflare; it is never stored or logged here."""
-        b = b if isinstance(b, dict) else {}
-        kind = str(b.get("kind", ""))
-        if kind not in ("google", "github"):
-            raise HttpError(400, "kind: google yoki github")
-        res = await h("login.provider", {"kind": kind, "client_id": str(b.get("client_id") or ""),
-                                         "client_secret": str(b.get("client_secret") or ""),
-                                         "enabled": bool(b.get("enabled", True))}, timeout=120)
-        db.add_event("action", "warn", f"Kirish usuli {'yoqildi' if b.get('enabled', True) else 'o‘chirildi'}: {kind}", actor=p.user)
+                                       "emails": [str(e) for e in emails], "root_app": root}, timeout=120)
+        db.add_event("action", "info", f"Cloudflare Tunnel sozlandi: panel.{state.cfg.domain}",
+                     f"ruxsat: {', '.join(str(e) for e in emails)}", actor=p.user)
         return res
 
     @api.route("POST", "/v1/tunnel/sync", role="admin")

@@ -67,9 +67,6 @@ export function AccountCard({ onUsers }: { onUsers: () => void }) {
         </div>
       </div>
 
-      {user.name === 'mkadmin' ? (
-        <p className="card__meta account-pw">{t('account.ssoNote')}</p>
-      ) : (
       <form className="account-pw" onSubmit={submit} autoComplete="off">
         <div className="field__label account-pw__title"><KeyRound size={15} /> {t('account.changePw')}</div>
         <input className="input input--plain" type={type} placeholder={t('account.current')} value={cur}
@@ -90,7 +87,6 @@ export function AccountCard({ onUsers }: { onUsers: () => void }) {
         </div>
         <span className="card__meta">{t('account.pwHint')}</span>
       </form>
-      )}
 
       {me?.role === 'admin' && (
         <>

@@ -50,22 +50,6 @@ only the access it needs**, and that the web UI cannot become a remote shell.
   current password; the passwords are written only to that pty.
 * Admin mode → by default Cockpit asks for the Linux password every time admin mode is switched
   on; "Admin rejimini eslab qolish" (opt-in) lets Cockpit re-enable it at login with the login password.
-* Login only through Cloudflare (SSO, on by default once a domain is connected) → `panel.<domain>`
-  is protected by Cloudflare Access (Google / GitHub / email code); only the super-admin emails
-  are allowed and cloudflared rejects requests without a valid Access token for the app. Cockpit's
-  own login page is configured for OAuth: `/mk-sso` hands the request's Access token back **only**
-  to `https://panel.<domain>` (no open redirect; control characters refused), and Cockpit passes it
-  as `Authorization: Bearer` to `/run/mirkomil-sso.sock` (root, reachable only by cockpit-ws's
-  group). There the RS256 signature is verified against the team's public keys (standard-library
-  RSA), plus issuer, audience, expiry, super-admin email, and that the request came through the
-  tunnel (loopback peer). The session then runs as the dedicated account `mkadmin`: password
-  locked, no SSH key. **`mkadmin` is root-equivalent**: its sudo rule (`python3 -ic *`, the only
-  form sudo-rs can match for Cockpit's admin bridge) needs no password, so whoever controls a
-  listed Google/GitHub account controls the server — keep that list short and those accounts
-  protected with 2-step verification. Every SSO login is logged with the email
-  (`journalctl -t mirkomil-sso`). LAN/Tailscale password login is off while SSO is on; the way
-  back in is SSH: `sudo mirkomil sso off`.
-* Google / GitHub client secrets → passed straight to Cloudflare, never stored on the server.
 * GitHub webhooks → a listener inside Guardian bound to 127.0.0.1:8099 only, reachable from the
   internet solely through the Cloudflare Tunnel host `hooks.<domain>`. It accepts nothing but
   `POST /github/<app>` (body ≤ 5 MB); each app has its own random secret and the

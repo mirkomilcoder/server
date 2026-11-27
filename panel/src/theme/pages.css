@@ -210,5 +210,3 @@
   .hook-item { grid-template-columns: auto minmax(0, 1fr) auto; }
   .hook-item__event { display: none; }
 }
-
-.dom-warning { margin-top: 10px; font-size: 13px; }

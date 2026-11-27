@@ -13,14 +13,11 @@ TOKEN = "t" * 40
 class FakeAPI:
     """Tiny in-memory Cloudflare: enough to drive setup/sync end to end."""
 
-    def __init__(self, zone_found=True, access=True, account_token=False, idp_edit=True):
+    def __init__(self, zone_found=True, access=True, account_token=False):
         self.calls: list[tuple[str, str]] = []
         self.zone_found, self.access = zone_found, access
         # new "cfat_…" Account API tokens: valid only on /accounts/<id>/tokens/verify
         self.account_token = account_token
-        self.idp_edit = idp_edit  # token has "Access: Organizations, Identity Providers, and Groups → Edit"
-        self.idps: list[dict] = []
-        self.login_design = None
         self.tunnels: list[dict] = []
         self.dns: dict[str, dict] = {}
         self.apps: list[dict] = []
@@ -44,27 +41,8 @@ class FakeAPI:
             return {"status": "active"}
         if path.startswith("/zones?name="):
             return [{"id": "Z", "account": {"id": "A"}}] if self.zone_found else []
-        if path == "/accounts/A/access/organizations" and method == "PUT":
-            if not self.idp_edit:
-                raise CFError("Cloudflare: 10000: Authentication error")
-            self.login_design = body["login_design"]
-            return body
         if path == "/accounts/A/access/organizations":
             return {"auth_domain": "myteam.cloudflareaccess.com"} if self.access else {}
-        if path.startswith("/accounts/A/access/identity_providers/"):
-            iid = path.rsplit("/", 1)[1]
-            if method == "DELETE":
-                self.idps = [i for i in self.idps if i["id"] != iid]
-                return {}
-            self.idps = [({**body, "id": iid} if i["id"] == iid else i) for i in self.idps]
-            return {**body, "id": iid}
-        if path == "/accounts/A/access/identity_providers":
-            if method == "GET":
-                return self.idps
-            if not self.idp_edit:
-                raise CFError("Cloudflare: 10000: Authentication error")
-            self.idps.append({**body, "id": {"onetimepin": "OTP"}.get(body["type"], body["type"].upper())})
-            return self.idps[-1]
         if path.startswith("/accounts/A/cfd_tunnel?name="):
             return self.tunnels
         if path == "/accounts/A/cfd_tunnel" and method == "POST":
@@ -106,8 +84,7 @@ class FakeAPI:
                 self.policies["APP"] = [{**body, "id": "P1"}]
             return {}
         if path == "/accounts/A/access/apps/APP" and method == "PUT":
-            self.apps[0] = {**body, "id": "APP", "aud": "AUD123"}
-            return self.apps[0]
+            return {**body, "id": "APP", "aud": "AUD123"}
         raise AssertionError(f"unexpected {method} {path}")
 
 
@@ -136,7 +113,7 @@ def test_ingress_panel_first_with_access_and_404_last():
     assert ing[-1] == {"service": "http_status:404"}
     root = next(r for r in ing if r.get("hostname") == "d.uz")
     assert root["originRequest"]["httpHostHeader"] == "shop.d.uz"
-    assert all(r["service"] == "http://localhost:8088" for r in ing[3:-1])
+    assert all(r["service"] == "http://localhost:8088" for r in ing[2:-1])
     assert hosts_of(ing) == ["panel.d.uz", "hooks.d.uz", "shop.d.uz", "d.uz"]
 
 
@@ -208,71 +185,4 @@ def test_account_api_tokens_cfat_work(env):
     api = FakeAPI(account_token=True)
     out = cfm.setup("cfat_" + "x" * 48, "example.uz", ["a@b.uz"], requester=api)
     assert out["configured"] and ("GET", "/accounts/A/tokens/verify") in api.calls
-
-
-
-@pytest.mark.parametrize("err,expect", [
-    ("Cloudflare: 9109: Invalid access token", "qabul qilmadi"),
-    ("Cloudflare: 1000: Invalid API Token", "qabul qilmadi"),
-    ("Cloudflare: 9109: Unauthorized to access requested resource", "Zone Read"),
-    ("Cloudflare: 10000: Authentication error", "Zone Read"),
-])
-def test_token_errors_are_explained(err, expect):
-    def req(_m, _p, _b):
-        raise CFError(err)
-    with pytest.raises(CFError, match=expect.replace(" ", ".*")):
-        CF(TOKEN, req).zone("example.uz")
-
-
-def test_everyone_mode_uses_email_code_login_and_brands_the_page(env):
-    api = FakeAPI()
-    out = cfm.setup(TOKEN, "example.uz", [], mode="everyone", brand="ITC HOSTING", requester=api)
-    assert out["warnings"] == []
-    assert api.idps == [{"name": "Email kod (One-time PIN)", "type": "onetimepin", "config": {}, "id": "OTP"}]
-    app = api.apps[0]
-    assert app["allowed_idps"] == ["OTP"] and app["auto_redirect_to_identity"] is True
-    assert api.policies["APP"][0]["include"] == [{"everyone": {}}]
-    assert api.login_design["header_text"] == "ITC HOSTING"
-    assert api.login_design["logo_path"] == "https://hooks.example.uz/brand/logo.svg"
-    # a second run reuses the existing one-time PIN provider
-    cfm.setup(TOKEN, "example.uz", [], mode="everyone", requester=api)
-    assert len(api.idps) == 1
-    assert cfm.status(requester=api)["access_mode"] == "everyone"
-
-
-def test_read_only_access_permission_still_works_with_clear_warnings(env):
-    api = FakeAPI(idp_edit=False)
-    out = cfm.setup(TOKEN, "example.uz", ["a@b.uz"], requester=api)
-    assert out["configured"] and len(out["warnings"]) == 2 and "Edit" in out["warnings"][0]
-    assert "allowed_idps" not in api.apps[0]
-
-
-def test_email_mode_needs_emails_and_rejects_unknown_mode(env):
-    with pytest.raises(CFError, match="email"):
-        cfm.setup(TOKEN, "example.uz", [], mode="emails", requester=FakeAPI())
-    with pytest.raises(CFError, match="rejim"):
-        cfm.setup(TOKEN, "example.uz", [], mode="public", requester=FakeAPI())
-
-
-def test_google_and_github_login_are_offered_with_email_code(env):
-    api = FakeAPI()
-    cfm.setup(TOKEN, "example.uz", ["boss@gmail.com"], requester=api)
-    out = cfm.set_login_provider("google", "123-abc.apps.googleusercontent.com", "GOCSPX-secret-value", requester=api)
-    assert out["providers"] == ["google", "onetimepin"]
-    assert out["callback"] == "https://myteam.cloudflareaccess.com/cdn-cgi/access/callback"
-    google = next(i for i in api.idps if i["type"] == "google")
-    assert google["config"] == {"client_id": "123-abc.apps.googleusercontent.com", "client_secret": "GOCSPX-secret-value"}
-    app = api.apps[0]
-    assert app["allowed_idps"] == ["GOOGLE", "OTP"] and app["auto_redirect_to_identity"] is False  # two choices
-    secret_on_disk = "".join(p.read_text() for p in (env / "tunnel").rglob("*") if p.is_file())
-    assert "GOCSPX-secret-value" not in secret_on_disk  # the secret lives in Cloudflare only
-    cfm.set_login_provider("google", "", "", enabled=False, requester=api)
-    assert [i["type"] for i in api.idps] == ["onetimepin"]
-
-
-def test_bad_oauth_credentials_are_refused_before_calling_cloudflare(env):
-    api = FakeAPI()
-    cfm.setup(TOKEN, "example.uz", ["boss@gmail.com"], requester=api)
-    with pytest.raises(CFError, match="Client"):
-        cfm.set_login_provider("github", "x", "short", requester=api)
 

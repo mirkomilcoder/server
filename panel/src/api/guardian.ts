@@ -260,7 +260,6 @@ export const users = {
   groups: () => get<{ groups: { name: string; about: string }[] }>('/v1/users/groups'),
   create: (b: { user: string; role: Role; name: string; email: string; apps: string[] }) => post<Invite>('/v1/users', b),
   setRole: (name: string, role: Role) => post<{ role: Role }>(u(name, 'role'), { role }),
-  setEmail: (name: string, email: string) => post<{ email: string | null; access: string }>(u(name, 'email'), { email }),
   setLocked: (name: string, locked: boolean) => post<{ locked: boolean }>(u(name, 'lock'), { locked }),
   resetPassword: (name: string) => post<Invite>(u(name, 'password'), {}),
   setApps: (name: string, list: string[]) => post<{ apps: string[] }>(u(name, 'apps'), { apps: list }),
@@ -303,52 +302,19 @@ export interface TunnelStatus {
   /** systemd unit state of cloudflared */
   service?: string;
   error?: string;
-  /** "everyone": any email gets a login code, then the server login decides; "emails": only the list */
-  access_mode?: AccessMode;
-  warnings?: string[];
-  /** the owner's own emails (the rest of the list comes from the Users page) */
-  owner_emails?: string[] | null;
 }
-
-export type AccessMode = 'everyone' | 'emails';
 
 export interface TunnelSync {
   configured: boolean;
   hosts?: string[];
   dns?: { created: string[]; skipped: string[]; removed: string[] };
-  warnings?: string[];
 }
 
 export const tunnel = {
   status: () => get<TunnelStatus>('/v1/tunnel'),
   /** token may be empty to reuse the stored one (changing emails / root app). */
-  setup: (token: string, emails: string[], root_app: string | null, access_mode: AccessMode) =>
-    post<TunnelSync>('/v1/tunnel/setup', { token, emails, root_app, access_mode }),
+  setup: (token: string, emails: string[], root_app: string | null) => post<TunnelSync>('/v1/tunnel/setup', { token, emails, root_app }),
   sync: () => post<TunnelSync>('/v1/tunnel/sync', {}),
-};
-
-// ---------------------------------------------------------------- super admins & sign-in methods
-
-export const admins = {
-  list: () => get<{ emails: string[] }>('/v1/admins'),
-  set: (emails: string[]) => post<{ emails: string[]; access?: string }>('/v1/admins', { emails }),
-};
-
-export interface LoginStatus {
-  configured: boolean;
-  /** configured Cloudflare Access sign-in methods: google | github | onetimepin */
-  providers?: string[];
-  /** OAuth redirect URL to register in Google / GitHub */
-  callback?: string;
-  /** Cockpit login only through Cloudflare (mirkomil-sso) */
-  sso?: boolean;
-  error?: string;
-}
-
-export const login = {
-  status: () => get<LoginStatus>('/v1/login'),
-  setProvider: (kind: 'google' | 'github', client_id: string, client_secret: string, enabled: boolean) =>
-    post<LoginStatus>('/v1/login/provider', { kind, client_id, client_secret, enabled }),
 };
 
 export const docker = {

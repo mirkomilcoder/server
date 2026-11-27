@@ -383,38 +383,9 @@ def v_tunnel_setup(a: dict[str, Any]) -> Any:
     root = a.get("root_app") or None
     if root is not None and not APP_RE.match(str(root)):
         raise VerbError("invalid root app")
-    mode = str(a.get("access_mode") or cloudflare.load_state().get("access_mode") or "emails")
-    brand = str(a.get("brand") or "Mirkomil Host")[:40]
-    out = _cf_call(lambda: cloudflare.setup(token, domain, [str(e) for e in emails], str(root) if root else None,
-                                            mode=mode, brand=brand))
+    out = _cf_call(lambda: cloudflare.setup(token, domain, [str(e) for e in emails], str(root) if root else None))
     _tunnel_restart()
-    if a.get("sso", True):
-        # login only through Cloudflare Access (cockpit.conf [OAuth]/[bearer] + mkadmin), module 75
-        try:
-            run_installer_job("sso", "50,75", {"MK_SSO": "yes"}, timeout=300)
-            out["sso"] = True
-        except VerbError as e:
-            out.setdefault("warnings", []).append(f"Cloudflare orqali kirishni yoqib bo'lmadi: {str(e)[-200:]}")
     return out
-
-
-def v_login_provider(a: dict[str, Any]) -> Any:
-    from . import cloudflare
-    kind = str(a.get("kind", ""))
-    if kind not in ("google", "github"):
-        raise VerbError("kind: google | github")
-    return _cf_call(lambda: cloudflare.set_login_provider(kind, str(a.get("client_id") or ""), str(a.get("client_secret") or ""),
-                                                          bool(a.get("enabled", True))))
-
-
-def v_login_status(_a: dict[str, Any]) -> Any:
-    from . import cloudflare
-    return _cf_call(cloudflare.login_status)
-
-
-def v_sso_set(a: dict[str, Any]) -> Any:
-    """Turn "login only through Cloudflare" on or off (same as `sudo mirkomil sso on|off`)."""
-    return run_installer_job("sso", "50,75", {"MK_SSO": "yes" if a.get("enabled") else "no"}, timeout=300)
 
 
 def v_tunnel_sync(_a: dict[str, Any]) -> Any:
@@ -498,9 +469,6 @@ VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "user.delete": v_user_delete,
     "user.groups": v_user_groups,
     "tunnel.setup": v_tunnel_setup,
-    "sso.set": v_sso_set,
-    "login.provider": v_login_provider,
-    "login.status": v_login_status,
     "tunnel.sync": v_tunnel_sync,
     "tunnel.status": v_tunnel_status,
     "app.deploykey": v_app_deploykey,

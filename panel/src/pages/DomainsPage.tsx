@@ -8,7 +8,6 @@ import { useToast } from '@/state/toasts';
 import { Modal } from '@/components/Modal';
 import { Card, MotionGrid } from '@/widgets/Card';
 import { RowsSkeleton } from '@/widgets/Skeletons';
-import { LoginMethodsCard } from '@/widgets/LoginMethodsCard';
 import type { PageProps } from './registry';
 
 /*
@@ -73,10 +72,7 @@ export default function DomainsPage({ go }: PageProps) {
       ) : !s?.configured ? (
         <SetupCard onDone={() => setTick((x) => x + 1)} />
       ) : (
-        <>
-          <Configured s={s} go={go} />
-          <LoginMethodsCard />
-        </>
+        <Configured s={s} go={go} />
       )}
 
       <Modal open={editing} onClose={() => setEditing(false)} title={t('dom.edit')}>
@@ -109,9 +105,6 @@ function Configured({ s, go }: { s: TunnelStatus; go: PageProps['go'] }) {
 
   return (
     <>
-      {s.access_mode === 'everyone' && (
-        <div className="notice notice--danger" role="alert">{t('dom.everyoneWarn')}</div>
-      )}
       {s.domain && s.domain !== domain && (
         <div className="notice notice--warning" role="status">{t('dom.mismatch', { old: s.domain, now: domain })}</div>
       )}
@@ -133,16 +126,7 @@ function Configured({ s, go }: { s: TunnelStatus; go: PageProps['go'] }) {
             <span className="pill pill--success"><ShieldCheck size={13} /> Access</span>
           </div>
           <p className="card__meta">{t('dom.panelHint')}</p>
-          {(s.emails ?? []).map((e) => (
-            <div className="list-line mono" key={e}>
-              <span>{e}</span>
-              <span className="row-gap">
-                <span className="card__meta">{(s.owner_emails ?? []).includes(e) ? t('users.owner') : t('nav.users')}</span>
-                <CheckCircle2 size={15} className="c-success" />
-              </span>
-            </div>
-          ))}
-          {(s.warnings ?? []).map((w) => <p key={w} className="notice notice--warning dom-warning">{w}</p>)}
+          {(s.emails ?? []).map((e) => <div className="list-line mono" key={e}><span>{e}</span><CheckCircle2 size={15} className="c-success" /></div>)}
         </Card>
       </MotionGrid>
 
@@ -186,7 +170,7 @@ function SetupCard({ onDone }: { onDone: () => void }) {
             <ul className="mono card__meta">
               <li>Account · Cloudflare Tunnel · Edit</li>
               <li>Account · Access: Apps and Policies · Edit</li>
-              <li>Account · Access: Organizations, Identity Providers, and Groups · Edit</li>
+              <li>Account · Access: Organizations, Identity Providers, and Groups · Read</li>
               <li>Zone · DNS · Edit — {domain}</li>
               <li>Zone · Zone · Read — {domain}</li>
             </ul>
@@ -207,7 +191,7 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
   const { domain } = useBrand();
   const list = usePoll(apps.list, 60_000);
   const [token, setToken] = useState('');
-  const [emails, setEmails] = useState((initial?.owner_emails ?? initial?.emails ?? []).join(', '));
+  const [emails, setEmails] = useState((initial?.emails ?? []).join(', '));
   const [root, setRoot] = useState(initial?.root_app ?? '');
   const [busy, setBusy] = useState(false);
 
@@ -221,10 +205,9 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
     if (!emailsOk || !tokenOk) return;
     setBusy(true);
     try {
-      const r = await tunnel.setup(token, emailList, root || null, 'emails');
+      const r = await tunnel.setup(token, emailList, root || null);
       setToken('');
       toast({ kind: 'success', title: t('dom.done'), details: (r.hosts ?? []).join(', ') });
-      for (const w of r.warnings ?? []) toast({ kind: 'warning', title: t('dom.warning'), details: w });
       onDone();
     } catch (err) {
       toast({ kind: 'error', title: t('action.failed'), details: err instanceof Error ? err.message : String(err) });
@@ -241,12 +224,12 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
           placeholder={initial ? t('dom.tokenKeep') : ''} onChange={(e) => setToken(e.target.value.trim())} aria-invalid={!!token && !tokenOk} />
         <span className={token && !tokenOk ? 'form-error' : 'card__meta'}>{token && !tokenOk ? t('dom.tokenBad') : t('dom.tokenHint')}</span>
       </label>
-      {!initial && <label className="field">
-        <span className="field__label">{t('dom.ownerEmails')}</span>
+      <label className="field">
+        <span className="field__label">{t('dom.emails')}</span>
         <input className="input input--plain mono" value={emails} placeholder="siz@gmail.com" onChange={(e) => setEmails(e.target.value)}
           aria-invalid={!!emails && !emailsOk} />
-        <span className={emails && !emailsOk ? 'form-error' : 'card__meta'}>{emails && !emailsOk ? t('dom.emailsBad') : t('dom.ownerEmailsHint')}</span>
-      </label>}
+        <span className={emails && !emailsOk ? 'form-error' : 'card__meta'}>{emails && !emailsOk ? t('dom.emailsBad') : t('dom.emailsHint')}</span>
+      </label>
       <label className="field">
         <span className="field__label">{t('dom.rootApp', { domain })}</span>
         <select className="select" value={root} onChange={(e) => setRoot(e.target.value)}>

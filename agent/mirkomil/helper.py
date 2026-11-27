@@ -216,8 +216,10 @@ def v_app_env_set(a: dict[str, Any]) -> Any:
     if not isinstance(env, dict) or not isinstance(keep, list):
         raise VerbError("bad env")
     old = engine.read_env(app)
-    merged = {k: old[k] for k in keep if isinstance(k, str) and k in old}
-    merged.update({str(k): str(v) for k, v in env.items()})
+    new = {str(k): str(v) for k, v in env.items()}
+    # keep the file's order: existing keys stay where they were, new ones go last
+    merged = {k: new.get(k, v) for k, v in old.items() if k in new or k in keep}
+    merged.update({k: v for k, v in new.items() if k not in merged})
     try:
         engine.write_env(app, merged)
     except engine.DeployError as e:
@@ -228,6 +230,12 @@ def v_app_env_set(a: dict[str, Any]) -> Any:
 def v_app_env_keys(a: dict[str, Any]) -> Any:
     from .paas import engine
     return engine.read_env_keys(_app(a))
+
+
+def v_app_env_get(a: dict[str, Any]) -> Any:
+    """Values for the env editor. Guardian checks per-app access and logs every read."""
+    from .paas import engine
+    return engine.read_env(_app(a))
 
 
 def v_app_control(a: dict[str, Any]) -> Any:
@@ -472,6 +480,7 @@ VERBS: dict[str, Callable[[dict[str, Any]], Any]] = {
     "app.deploy": v_app_deploy,
     "app.env.set": v_app_env_set,
     "app.env.keys": v_app_env_keys,
+    "app.env.get": v_app_env_get,
     "app.control": v_app_control,
     "app.logs": v_app_logs,
     "app.delete": v_app_delete,

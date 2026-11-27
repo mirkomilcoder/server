@@ -285,10 +285,28 @@ def register(api: Any, state: Any) -> None:
         a = get_app(q["name"], p)
         b = b if isinstance(b, dict) else {}
         keep = [k for k in (b.get("keep") or []) if isinstance(k, str) and ENV_KEY_RE.match(k)]
-        keys = await h("app.env.set", {"app": a["name"], "env": _validate_env(b.get("env")), "keep": keep})
-        db.add_event("action", "info", f"Env o'zgaruvchilari yangilandi: {a['name']}", f"{len(keys)} ta kalit",
+        env = _validate_env(b.get("env"))
+        before = {e["key"] for e in await h("app.env.keys", {"app": a["name"]})}
+        keys = await h("app.env.set", {"app": a["name"], "env": env, "keep": keep})
+        after = {e["key"] for e in keys}
+        # which keys changed — never the values
+        detail = "; ".join(x for x in (
+            f"o'zgardi: {', '.join(sorted(set(env) & before))}" if set(env) & before else "",
+            f"qo'shildi: {', '.join(sorted(after - before))}" if after - before else "",
+            f"o'chirildi: {', '.join(sorted(before - after))}" if before - after else "",
+        ) if x) or "o'zgarish yo'q"
+        db.add_event("action", "info", f"Env o'zgaruvchilari yangilandi: {a['name']}", detail,
                      check_id=f"app:{a['name']}", actor=p.user)
         return {"env": keys}
+
+    @api.route("POST", "/v1/apps/{name}/env/reveal", role="developer")
+    async def reveal_env(p: Peer, q: dict[str, str], _b: Any) -> Any:
+        """Current values for the env editor: only for users who may use this app; every read is logged."""
+        a = get_app(q["name"], p)
+        env = await h("app.env.get", {"app": a["name"]})
+        db.add_event("action", "warn", f"Env qiymatlari ko'rildi: {a['name']}", f"{len(env)} ta kalit",
+                     check_id=f"app:{a['name']}", actor=p.user)
+        return {"env": [{"key": k, "value": v} for k, v in env.items()]}
 
     @api.route("POST", "/v1/apps/{name}/delete", role="admin")
     async def delete(p: Peer, q: dict[str, str], b: Any) -> Any:

@@ -12,6 +12,7 @@ import { useToast } from '@/state/toasts';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Card, MotionGrid } from '@/widgets/Card';
 import { DeployLog } from '@/widgets/DeployLog';
+import { EnvEditor } from '@/widgets/EnvEditor';
 import { NewAppWizard } from '@/widgets/NewAppWizard';
 import { RowsSkeleton } from '@/widgets/Skeletons';
 import { timeAgo } from '@/widgets/home';
@@ -216,54 +217,6 @@ function RuntimeLogs({ name, deployed, onControl, busy }: { name: string; deploy
       </span>
     }>
       <pre className="console console--logs" ref={box}>{logs.data?.text || '…'}</pre>
-    </Card>
-  );
-}
-
-function EnvEditor({ a, onSaved }: { a: AppDetail; onSaved: () => void }) {
-  const { t } = useT();
-  const toast = useToast();
-  // existing keys: kept unless removed; a typed value replaces it
-  const [rows, setRows] = useState(() => a.env.map((e) => ({ key: e.key, length: e.length, value: '', existing: true, removed: false })));
-  const [busy, setBusy] = useState(false);
-
-  const save = async () => {
-    setBusy(true);
-    try {
-      const env: Record<string, string> = {};
-      const keep: string[] = [];
-      for (const r of rows) {
-        if (r.removed || !r.key) continue;
-        if (r.value) env[r.key] = r.value;
-        else if (r.existing) keep.push(r.key);
-      }
-      await apps.setEnv(a.name, env, keep);
-      toast({ kind: 'success', title: t('app.env.saved') });
-      onSaved();
-    } catch (e) {
-      toast({ kind: 'error', title: t('action.failed'), details: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card title={t('app.tab.env')} tools={<button className="btn btn--accent btn--sm" onClick={save} disabled={busy}>{t('app.env.save')}</button>}>
-      <p className="card__meta" style={{ marginBottom: 12 }}>{t('wizard.envHint')}</p>
-      {rows.filter((r) => !r.removed).length === 0 && <p className="muted">{t('app.env.empty')}</p>}
-      {rows.map((r, i) => r.removed ? null : (
-        <div className="env-row" key={i}>
-          <input className="input input--plain mono" value={r.key} disabled={r.existing} placeholder="KEY"
-            onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, key: e.target.value.toUpperCase() } : x)))} />
-          <input className="input input--plain mono" type="password" autoComplete="off" value={r.value}
-            placeholder={r.existing ? t('app.env.hidden', { n: r.length }) : 'value'}
-            onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />
-          <button className="icon-btn" aria-label="remove" onClick={() => setRows(rows.map((x, j) => (j === i ? { ...x, removed: true } : x)))}><Trash2 size={16} /></button>
-        </div>
-      ))}
-      <button className="btn btn--ghost btn--sm" onClick={() => setRows([...rows, { key: '', length: 0, value: '', existing: false, removed: false }])}>
-        <Plus size={15} /> {t('wizard.addEnv')}
-      </button>
     </Card>
   );
 }

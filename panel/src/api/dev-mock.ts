@@ -278,6 +278,11 @@ function http(): ReturnType<Cockpit['http']> {
     },
     post: async (path, body) => {
       const b = JSON.parse(String(body ?? '{}')) as { mode?: string; rule?: string; enabled?: boolean; user?: string; role?: string };
+      if (path.endsWith('/env/reveal')) {
+        return JSON.stringify({ env: [{ key: 'DATABASE_URL', value: 'postgresql://app:Xk29fLq7@mk-db-shop-db:5432/shop' },
+          { key: 'SECRET_KEY', value: 'django-insecure-9f8a7s6d5f4g3h2j1k' }, { key: 'DEBUG', value: 'False' }] });
+      }
+      if (path.endsWith('/env')) return JSON.stringify({ env: [] });
       if (path === '/v1/users' || path.endsWith('/password')) {
         return JSON.stringify({ user: b.user ?? path.split('/')[3], role: b.role ?? 'developer', password: 'k7mp-x3qa-9fhz-w2nd',
           panel_url: 'https://panel.mirkomil-host.uz', email: 'ali@example.com', access: 'ok' });

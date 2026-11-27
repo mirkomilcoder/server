@@ -198,6 +198,8 @@ export const apps = {
   remove: (name: string, confirm: string) => post<{ deleted: string }>(`/v1/apps/${encodeURIComponent(name)}/delete`, { confirm }),
   deployKey: (name: string) => post<{ public_key: string }>(`/v1/apps/${encodeURIComponent(name)}/deploykey`, {}),
   setAutodeploy: (name: string, on: boolean) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { autodeploy: on }),
+  /** Current env values (developers with access to the app; logged in the activity feed). */
+  revealEnv: (name: string) => post<{ env: { key: string; value: string }[] }>(`/v1/apps/${encodeURIComponent(name)}/env/reveal`, {}),
   setPublic: (name: string, on: boolean | null) => post<AppInfo>(`/v1/apps/${encodeURIComponent(name)}/settings`, { public: on }),
 };
 

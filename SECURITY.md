@@ -74,8 +74,10 @@ only the access it needs**, and that the web UI cannot become a remote shell.
 
 * `/etc/mirkomil/secrets.env` — root only (`0600`).
 * `/etc/mirkomil/guardian.env` — Telegram token only, `root:mirkomil 0640`.
-* Secrets are never passed on a logged command line, never stored in browser localStorage, and the
-  contents of env files are never shown in the UI.
+* Secrets are never passed on a logged command line and never stored in browser localStorage.
+  Server secret files are never shown in the UI. An app's own env values are shown (masked until
+  revealed) only to developers/admins with access to that app, fetched when the Env tab is opened,
+  and every opening is written to the activity log; change logs list key names, never values.
 
 ## Reporting a vulnerability
 

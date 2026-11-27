@@ -84,3 +84,34 @@
   #invite-card, #invite-card * { visibility: visible !important; color: #000 !important; }
   #invite-card { position: fixed; inset: 24px auto auto 24px; width: 520px; background: #fff !important; border: 2px dashed #555 !important; }
 }
+
+/* ---- App env editor (widgets/EnvEditor.tsx) ---- */
+.env-card { display: grid; gap: 12px; }
+.env-apply { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.env-apply span { flex: 1; }
+.env-list { display: grid; gap: 6px; }
+.env-item {
+  display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  min-height: 48px; padding: 6px 8px 6px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised);
+}
+.env-item--edit { border-color: var(--accent-35); box-shadow: 0 0 0 3px var(--accent-10); }
+.env-item--add { background: transparent; border-style: dashed; margin-top: 6px; }
+.env-item__key { font-weight: 700; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.env-item__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
+.env-item__value--masked { letter-spacing: .12em; color: var(--text-subtle); }
+.env-item__input, .env-item__key-input { height: 36px; min-width: 0; }
+.env-item__btns { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.env-item__btns .icon-btn { width: 32px; height: 32px; }
+.icon-btn--ok { color: var(--success-text); }
+.env-item__confirm { font-size: 13px; font-weight: 600; }
+.env-item__err { grid-column: 1 / -1; font-size: 12.5px; }
+.env-bulk { display: grid; gap: 10px; }
+.env-bulk__text { height: min(50vh, 420px); }
+.env-bulk__count { margin-right: auto; }
+@media (max-width: 820px) {
+  .env-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .env-item__value, .env-item__input { grid-column: 1 / -1; grid-row: 2; }
+  .env-item__btns { grid-row: 1; grid-column: 2; }
+  .env-item--add .env-item__key-input { grid-column: 1 / -1; }
+  .env-item--add .env-item__btns { grid-row: 3; grid-column: 1 / -1; }
+}

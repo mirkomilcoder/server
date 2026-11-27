@@ -55,7 +55,8 @@ Routerda port ochilmaydi: `cloudflared` serverdan faqat tashqariga ulanadi.
 
 1. Domeningizni (masalan `mirkomil-host.uz`) Cloudflare'ga qo'shing (bepul reja), NS serverlarni almashtiring.
 2. dash.cloudflare.com → **Zero Trust** bo'limini bir marta oching (bepul reja, jamoa nomi).
-3. API token yarating (*Create Custom Token*): Account · Cloudflare Tunnel · Edit; Account · Access: Apps and
+3. API token yarating: *Manage Account → Account API Tokens → Create Token → Custom token* (yangi `cfat_…` tokenlar;
+   eski *My Profile → API Tokens* ham ishlaydi): Account · Cloudflare Tunnel · Edit; Account · Access: Apps and
    Policies · Edit; Account · Access: Organizations, Identity Providers, and Groups · Read; Zone · DNS · Edit;
    Zone · Zone · Read.
 4. Panel → **Domenlar & SSL**: tokenni va panelga kira oladigan emaillarni kiriting.

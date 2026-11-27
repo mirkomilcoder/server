@@ -7,7 +7,9 @@ Public access model:
     <domain>         → optional "root app" (landing page)
 No inbound ports are opened: cloudflared only makes outbound connections.
 
-Token permissions needed (create at dash.cloudflare.com → My Profile → API Tokens):
+Token permissions needed. Either kind of token works:
+    Account API token ("cfat_…", dash.cloudflare.com → Manage Account → Account API Tokens) — recommended
+    User API token (dash.cloudflare.com → My Profile → API Tokens)
     Account · Cloudflare Tunnel · Edit
     Account · Access: Apps and Policies · Edit
     Account · Access: Organizations, Identity Providers, and Groups · Read
@@ -74,13 +76,24 @@ class CF:
         self.req = requester or _urllib_request(token)
 
     # ---- discovery ----
-    def verify(self) -> None:
-        r = self.req("GET", "/user/tokens/verify", None)
+    def verify(self, acc: str) -> None:
+        """Account API tokens ("cfat_…") are checked under the account, user tokens under /user."""
+        try:
+            r = self.req("GET", f"/accounts/{acc}/tokens/verify", None)
+        except CFError:
+            r = self.req("GET", "/user/tokens/verify", None)
         if (r or {}).get("status") != "active":
-            raise CFError("API token faol emas")
+            raise CFError("API token faol emas (muddati o'tgan yoki o'chirilgan)")
 
     def zone(self, domain: str) -> tuple[str, str]:
-        r = self.req("GET", f"/zones?name={domain}", None) or []
+        try:
+            r = self.req("GET", f"/zones?name={domain}", None) or []
+        except CFError as e:
+            if "1000" in str(e) or "Invalid API Token" in str(e):
+                raise CFError("Cloudflare tokenni qabul qilmadi: to'liq nusxalanganini tekshiring (bo'sh joysiz)")
+            if "9109" in str(e) or "Unauthorized" in str(e) or "10000" in str(e):
+                raise CFError("Tokenda «Zone · Zone · Read» ruxsati yo'q yoki u bu domenga berilmagan")
+            raise
         if not r:
             raise CFError(f"{domain} domeni bu Cloudflare akkauntida topilmadi (avval domenni Cloudflare'ga qo'shing)")
         return r[0]["id"], r[0]["account"]["id"]
@@ -234,8 +247,8 @@ def setup(token: str, domain: str, emails: list[str], root_app: str | None = Non
     if not emails or not all(EMAIL_RE.match(e) for e in emails):
         raise CFError("kamida bitta to'g'ri email kerak (panelga kira oladiganlar)")
     cf = CF(token, requester)
-    cf.verify()
-    zone, acc = cf.zone(domain)
+    zone, acc = cf.zone(domain)  # first call: works for account and user tokens alike
+    cf.verify(acc)
     team = cf.team_domain(acc)
     tid, tunnel_token = cf.ensure_tunnel(acc, f"mirkomil-{domain}")
     aud = cf.ensure_access_app(acc, f"panel.{domain}", emails)

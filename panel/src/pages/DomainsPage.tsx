@@ -18,7 +18,8 @@ import type { PageProps } from './registry';
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,63}$/;
 const TOKEN_RE = /^[A-Za-z0-9_-]{30,200}$/;
-const TOKEN_URL = 'https://dash.cloudflare.com/profile/api-tokens';
+// Account API tokens ("cfat_…") live under Manage Account; the page redirects to the user's account
+const TOKEN_URL = 'https://dash.cloudflare.com/?to=/:account/api-tokens';
 
 const STATES = ['healthy', 'degraded', 'down', 'inactive'];
 const stateKey = (s?: string) => `dom.state.${STATES.includes(s ?? '') ? s : 'unknown'}` as TranslationKey;

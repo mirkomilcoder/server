@@ -13,9 +13,11 @@ TOKEN = "t" * 40
 class FakeAPI:
     """Tiny in-memory Cloudflare: enough to drive setup/sync end to end."""
 
-    def __init__(self, zone_found=True, access=True):
+    def __init__(self, zone_found=True, access=True, account_token=False):
         self.calls: list[tuple[str, str]] = []
         self.zone_found, self.access = zone_found, access
+        # new "cfat_…" Account API tokens: valid only on /accounts/<id>/tokens/verify
+        self.account_token = account_token
         self.tunnels: list[dict] = []
         self.dns: dict[str, dict] = {}
         self.apps: list[dict] = []
@@ -30,6 +32,12 @@ class FakeAPI:
     def __call__(self, method, path, body):
         self.calls.append((method, path))
         if path == "/user/tokens/verify":
+            if self.account_token:
+                raise CFError("Cloudflare: 1000: Invalid API Token")
+            return {"status": "active"}
+        if path == "/accounts/A/tokens/verify":
+            if not self.account_token:
+                raise CFError("Cloudflare: 1000: Invalid API Token")
             return {"status": "active"}
         if path.startswith("/zones?name="):
             return [{"id": "Z", "account": {"id": "A"}}] if self.zone_found else []
@@ -170,3 +178,11 @@ def test_status_reports_connections(env):
     cfm.setup(TOKEN, "example.uz", ["a@b.uz"], requester=api)
     st = cfm.status(requester=api)
     assert st["status"] == "healthy" and st["connections"] == 2 and st["panel_host"] == "panel.example.uz"
+
+
+def test_account_api_tokens_cfat_work(env):
+    """Cloudflare's new account-owned tokens are verified under /accounts/<id>, not /user."""
+    api = FakeAPI(account_token=True)
+    out = cfm.setup("cfat_" + "x" * 48, "example.uz", ["a@b.uz"], requester=api)
+    assert out["configured"] and ("GET", "/accounts/A/tokens/verify") in api.calls
+

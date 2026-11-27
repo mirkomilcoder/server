@@ -67,11 +67,22 @@ cmd_doctor() {
 cmd_repair() { exec sudo "$SRC/installer/main.sh" --repair "$@"; }
 cmd_update() { exec sudo "$SRC/install.sh" --update "$@"; }
 cmd_logs() { sudo tail -n "${1:-100}" /var/log/mirkomil-install.log; }
+# Login only through Cloudflare (on) or Cockpit's own password login (off) — the way back in
+# when Cloudflare isn't reachable.
+cmd_sso() {
+  case "${1:-}" in
+    on|off) ;;
+    *) echo "Ishlatish: sudo mirkomil sso on|off" >&2; exit 2 ;;
+  esac
+  local v=no; [[ "$1" == on ]] && v=yes
+  exec sudo env MK_SSO="$v" "$SRC/installer/main.sh" --repair --yes --only 50,75
+}
 
 case "${1:-status}" in
   status) cmd_status ;;
   doctor) cmd_doctor ;;
   repair) shift; cmd_repair "$@" ;;
+  sso) shift; cmd_sso "$@" ;;
   update) shift; cmd_update "$@" ;;
   logs) shift; cmd_logs "$@" ;;
   version | --version) echo "mirkomil $MK_VERSION" ;;

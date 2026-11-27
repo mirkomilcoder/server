@@ -81,6 +81,8 @@ config_defaults() {
   : "${MK_DOMAIN:=mirkomil-host.uz}"
   # Display name used on the login page, panel, browser title and alerts.
   : "${MK_BRAND_NAME:=Mirkomil Host}"
+  # Login only through Cloudflare Access (turned on from the panel once a domain is connected)
+  : "${MK_SSO:=no}"
 }
 
 run_wizard() {
@@ -145,7 +147,7 @@ save_config() {
       "$MK_MANAGED_HEADER" "$MK_SECRETS" >"$MK_CONFIG"
   fi
   local k
-  for k in MK_HOSTNAME MK_ADMIN_USER MK_TIMEZONE MK_LAN_CIDR MK_DOMAIN MK_BRAND_NAME MK_TAILSCALE MK_SSH_PASSWORD_AUTH MK_TELEGRAM; do
+  for k in MK_HOSTNAME MK_ADMIN_USER MK_TIMEZONE MK_LAN_CIDR MK_DOMAIN MK_BRAND_NAME MK_TAILSCALE MK_SSH_PASSWORD_AUTH MK_TELEGRAM MK_SSO; do
     set_env_key "$MK_CONFIG" "$k" "${!k}"
   done
   chmod 0644 "$MK_CONFIG"

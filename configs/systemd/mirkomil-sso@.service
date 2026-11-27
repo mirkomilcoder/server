@@ -1,0 +1,18 @@
+# Managed by mirkomil-server — edits are overwritten by install.sh
+# One SSO login: verify the Cloudflare Access token (signature, app, expiry, super-admin
+# email, came through the tunnel), then become the session of the "mkadmin" account.
+# Like cockpit-session@.service it runs as root without sandboxing: it turns into the
+# user's own session (the bridge), which must be able to use sudo for admin mode.
+[Unit]
+Description=Mirkomil SSO login %I
+Documentation=https://github.com/mirkomilcoder/server
+
+[Service]
+Environment=PYTHONPATH=/opt/mirkomil/src/agent PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m mirkomil sso
+StandardInput=socket
+StandardOutput=inherit
+StandardError=journal
+SyslogIdentifier=mirkomil-sso
+User=root
+SuccessExitStatus=1

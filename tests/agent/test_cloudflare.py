@@ -51,12 +51,19 @@ class FakeAPI:
             return body
         if path == "/accounts/A/access/organizations":
             return {"auth_domain": "myteam.cloudflareaccess.com"} if self.access else {}
+        if path.startswith("/accounts/A/access/identity_providers/"):
+            iid = path.rsplit("/", 1)[1]
+            if method == "DELETE":
+                self.idps = [i for i in self.idps if i["id"] != iid]
+                return {}
+            self.idps = [({**body, "id": iid} if i["id"] == iid else i) for i in self.idps]
+            return {**body, "id": iid}
         if path == "/accounts/A/access/identity_providers":
             if method == "GET":
                 return self.idps
             if not self.idp_edit:
                 raise CFError("Cloudflare: 10000: Authentication error")
-            self.idps.append({**body, "id": "OTP"})
+            self.idps.append({**body, "id": {"onetimepin": "OTP"}.get(body["type"], body["type"].upper())})
             return self.idps[-1]
         if path.startswith("/accounts/A/cfd_tunnel?name="):
             return self.tunnels
@@ -99,7 +106,8 @@ class FakeAPI:
                 self.policies["APP"] = [{**body, "id": "P1"}]
             return {}
         if path == "/accounts/A/access/apps/APP" and method == "PUT":
-            return {**body, "id": "APP", "aud": "AUD123"}
+            self.apps[0] = {**body, "id": "APP", "aud": "AUD123"}
+            return self.apps[0]
         raise AssertionError(f"unexpected {method} {path}")
 
 
@@ -128,7 +136,7 @@ def test_ingress_panel_first_with_access_and_404_last():
     assert ing[-1] == {"service": "http_status:404"}
     root = next(r for r in ing if r.get("hostname") == "d.uz")
     assert root["originRequest"]["httpHostHeader"] == "shop.d.uz"
-    assert all(r["service"] == "http://localhost:8088" for r in ing[2:-1])
+    assert all(r["service"] == "http://localhost:8088" for r in ing[3:-1])
     assert hosts_of(ing) == ["panel.d.uz", "hooks.d.uz", "shop.d.uz", "d.uz"]
 
 
@@ -244,3 +252,27 @@ def test_email_mode_needs_emails_and_rejects_unknown_mode(env):
         cfm.setup(TOKEN, "example.uz", [], mode="emails", requester=FakeAPI())
     with pytest.raises(CFError, match="rejim"):
         cfm.setup(TOKEN, "example.uz", [], mode="public", requester=FakeAPI())
+
+
+def test_google_and_github_login_are_offered_with_email_code(env):
+    api = FakeAPI()
+    cfm.setup(TOKEN, "example.uz", ["boss@gmail.com"], requester=api)
+    out = cfm.set_login_provider("google", "123-abc.apps.googleusercontent.com", "GOCSPX-secret-value", requester=api)
+    assert out["providers"] == ["google", "onetimepin"]
+    assert out["callback"] == "https://myteam.cloudflareaccess.com/cdn-cgi/access/callback"
+    google = next(i for i in api.idps if i["type"] == "google")
+    assert google["config"] == {"client_id": "123-abc.apps.googleusercontent.com", "client_secret": "GOCSPX-secret-value"}
+    app = api.apps[0]
+    assert app["allowed_idps"] == ["GOOGLE", "OTP"] and app["auto_redirect_to_identity"] is False  # two choices
+    secret_on_disk = "".join(p.read_text() for p in (env / "tunnel").rglob("*") if p.is_file())
+    assert "GOCSPX-secret-value" not in secret_on_disk  # the secret lives in Cloudflare only
+    cfm.set_login_provider("google", "", "", enabled=False, requester=api)
+    assert [i["type"] for i in api.idps] == ["onetimepin"]
+
+
+def test_bad_oauth_credentials_are_refused_before_calling_cloudflare(env):
+    api = FakeAPI()
+    cfm.setup(TOKEN, "example.uz", ["boss@gmail.com"], requester=api)
+    with pytest.raises(CFError, match="Client"):
+        cfm.set_login_provider("github", "x", "short", requester=api)
+

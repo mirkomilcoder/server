@@ -252,6 +252,9 @@ function http(): ReturnType<Cockpit['http']> {
       { ts: now() - 3600, event: 'push', result: 'ignored', detail: "dev branch — kuzatilmaydi (main)" },
       { ts: now() - 7200, event: 'ping', result: 'ok', detail: 'GitHub ulanishni tekshirdi' },
     ] }),
+    '/v1/admins': () => ({ emails: ['mirkomilcoder@gmail.com', 'mirsaid202805@gmail.com'] }),
+    '/v1/login': () => ({ configured: true, providers: ['google', 'onetimepin'], sso: true,
+      callback: 'https://round-silence-7567.cloudflareaccess.com/cdn-cgi/access/callback' }),
     '/v1/users': () => ({ users: [
       { user: 'home-server', uid: 1000, name: 'Mirkomil', role: 'admin', owner: true, managed: true, locked: false, must_change: false,
         groups: ['adm'], email: null, invited_by: null, invited_at: null, apps: [] },

@@ -20,6 +20,11 @@ def main() -> int:
         from .helper import serve
         serve()
         return 0
+    if cmd == "sso":
+        # one Cockpit login (mirkomil-sso@.service, root): verify the Cloudflare token, start the session
+        from .sso import auth_main
+        logging.getLogger().handlers[0].setFormatter(logging.Formatter("%(message)s"))
+        return auth_main()
     if cmd == "deploy":
         # started by the helper via systemd-run (root, outside the helper sandbox)
         from pathlib import Path

@@ -483,6 +483,26 @@ def register(api: Any, state: Any) -> None:
         db.add_event("action", "info", f"Cloudflare Tunnel sozlandi: panel.{state.cfg.domain}", f"ruxsat: {who}", actor=p.user)
         return res
 
+    @api.route("GET", "/v1/login", role="admin")
+    async def login_methods(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+        """Which sign-in methods the panel offers (Google / GitHub / email code) + the OAuth callback URL."""
+        out = await h("login.status", timeout=40)
+        out["sso"] = os.path.exists("/etc/systemd/system/sockets.target.wants/mirkomil-sso.socket")
+        return out
+
+    @api.route("POST", "/v1/login/provider", role="admin")
+    async def login_provider(p: Peer, _q: dict[str, str], b: Any) -> Any:
+        """The client secret is passed straight to Cloudflare; it is never stored or logged here."""
+        b = b if isinstance(b, dict) else {}
+        kind = str(b.get("kind", ""))
+        if kind not in ("google", "github"):
+            raise HttpError(400, "kind: google yoki github")
+        res = await h("login.provider", {"kind": kind, "client_id": str(b.get("client_id") or ""),
+                                         "client_secret": str(b.get("client_secret") or ""),
+                                         "enabled": bool(b.get("enabled", True))}, timeout=120)
+        db.add_event("action", "warn", f"Kirish usuli {'yoqildi' if b.get('enabled', True) else 'o‘chirildi'}: {kind}", actor=p.user)
+        return res
+
     @api.route("POST", "/v1/tunnel/sync", role="admin")
     async def tunnel_sync(p: Peer, _q: dict[str, str], _b: Any) -> Any:
         res = await h("tunnel.sync", timeout=120)

@@ -71,6 +71,19 @@ Natija:
 Token faqat `/var/lib/mirkomil/tunnel/private/` da (`root`, `0600`) saqlanadi va panelda qayta ko'rsatilmaydi.
 Siz yaratmagan DNS yozuvlariga tegilmaydi.
 
+## Kirish (faqat Cloudflare orqali)
+
+Domen ulangach panelga kirish **faqat** `https://panel.<domen>` orqali bo'ladi: Google, GitHub yoki
+emailga keladigan kod — keyin to'g'ridan-to'g'ri panel (server paroli so'ralmaydi).
+
+* **Super adminlar** sahifasida kim kira olishini boshqarasiz — bitta rol, to'liq huquq. Ro'yxatda yo'q
+  email Cloudflare'da rad etiladi.
+* **Domenlar & SSL → Kirish usullari**: Google yoki GitHub uchun bir marta OAuth ilova yaratib, Client ID va
+  Secret'ni kiritasiz (Secret faqat Cloudflare'da saqlanadi).
+* Har bir kirish email bilan jurnalga yoziladi: `journalctl -t mirkomil-sso`.
+* Favqulodda holat (Cloudflare ishlamasa): SSH orqali `sudo mirkomil sso off` — oddiy login qaytadi;
+  `sudo mirkomil sso on` — yana yoqiladi.
+
 ## Loyihalarni deploy qilish
 
 Panel → **Deploy / Loyihalar** → GitHub manzilini kiriting. Qolganini server o'zi aniqlaydi:

@@ -143,6 +143,33 @@ def register(api: Any, state: Any) -> None:
         return {"user": user, "role": role, "password": res["password"], "panel_url": await panel_url(),
                 "email": email, "apps": apps, "access": access}
 
+    # ---------------------------------------------------------------- super admins (one role)
+
+    @api.route("GET", "/v1/admins", role="admin")
+    async def admins_get(_p: Peer, _q: dict[str, str], _b: Any) -> Any:
+        """Super admins = the emails allowed through Cloudflare; each one logs in with full rights."""
+        return {"emails": allowed_emails(db)}
+
+    @api.route("POST", "/v1/admins", role="admin")
+    async def admins_set(p: Peer, _q: dict[str, str], b: Any) -> Any:
+        emails = (b or {}).get("emails")
+        if not isinstance(emails, list) or not 1 <= len(emails) <= 50:
+            raise HttpError(400, "kamida bitta email kerak (o'zingizniki)")
+        clean = sorted({str(e).strip().lower() for e in emails if str(e).strip()})
+        bad = [e for e in clean if not EMAIL_RE.match(e)]
+        if bad or not clean:
+            raise HttpError(400, f"email noto'g'ri: {', '.join(bad) or '—'}")
+        before = allowed_emails(db)
+        db.put(OWNER_KEY, clean)
+        db.conn.execute("UPDATE user_meta SET email = NULL")  # the list above is now the whole truth
+        access = await access_sync()
+        added, removed = sorted(set(clean) - set(before)), sorted(set(before) - set(clean))
+        db.add_event("action", "warn", "Super adminlar o'zgardi",
+                     "; ".join(x for x in (f"qo'shildi: {', '.join(added)}" if added else "",
+                                           f"olib tashlandi: {', '.join(removed)}" if removed else "") if x) or "o'zgarish yo'q",
+                     actor=p.user)
+        return {"emails": allowed_emails(db), "access": access}
+
     @api.route("POST", "/v1/users/{name}/email", role="admin")
     async def users_email(p: Peer, q: dict[str, str], b: Any) -> Any:
         """The email that lets this user through Cloudflare Access ("" removes it)."""

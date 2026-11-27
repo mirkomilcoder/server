@@ -19,6 +19,9 @@ MANAGED_FILES=(
   /etc/systemd/system/mirkomil-guardian.service
   /etc/systemd/system/mirkomil-helper.service
   /etc/systemd/system/mirkomil-tunnel.service
+  /etc/systemd/system/mirkomil-sso.socket
+  /etc/systemd/system/mirkomil-sso@.service
+  /etc/sudoers.d/60-mirkomil-sso
   /etc/tmpfiles.d/mirkomil.conf
 )
 
@@ -34,7 +37,7 @@ uninstall_main() {
   fi
 
   local f bak
-  systemctl disable --now mirkomil-guardian.service mirkomil-helper.service mirkomil-tunnel.service >>"$MK_LOG" 2>&1 || true
+  systemctl disable --now mirkomil-guardian.service mirkomil-helper.service mirkomil-tunnel.service mirkomil-sso.socket >>"$MK_LOG" 2>&1 || true
   for f in "${MANAGED_FILES[@]}"; do
     [[ -e "$f" ]] || continue
     # never delete a file we don't manage (daemon.json has no header: compare content)

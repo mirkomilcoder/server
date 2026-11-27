@@ -327,6 +327,30 @@ export const tunnel = {
   sync: () => post<TunnelSync>('/v1/tunnel/sync', {}),
 };
 
+// ---------------------------------------------------------------- super admins & sign-in methods
+
+export const admins = {
+  list: () => get<{ emails: string[] }>('/v1/admins'),
+  set: (emails: string[]) => post<{ emails: string[]; access?: string }>('/v1/admins', { emails }),
+};
+
+export interface LoginStatus {
+  configured: boolean;
+  /** configured Cloudflare Access sign-in methods: google | github | onetimepin */
+  providers?: string[];
+  /** OAuth redirect URL to register in Google / GitHub */
+  callback?: string;
+  /** Cockpit login only through Cloudflare (mirkomil-sso) */
+  sso?: boolean;
+  error?: string;
+}
+
+export const login = {
+  status: () => get<LoginStatus>('/v1/login'),
+  setProvider: (kind: 'google' | 'github', client_id: string, client_secret: string, enabled: boolean) =>
+    post<LoginStatus>('/v1/login/provider', { kind, client_id, client_secret, enabled }),
+};
+
 export const docker = {
   containers: () => get<{ containers: DockerContainer[]; stats: Record<string, { cpu: string; mem: string; memPerc: string }> }>('/v1/docker/containers'),
   op: (name: string, op: 'start' | 'stop' | 'restart') => post<{ result: string }>('/v1/docker/container', { name, op }),

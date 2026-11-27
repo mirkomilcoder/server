@@ -249,6 +249,22 @@ cockpit_conf_apply() {
   else
     MK_COCKPIT_SHELL_LINE="# Shell: Cockpit default (Mirkomil Panel is not installed yet)"
   fi
+  # Login only through Cloudflare Access (module 75): Cockpit's OAuth login fetches the
+  # Access token from /mk-sso and our socket service verifies it.
+  local host
+  host="$(jq -r '.panel_host // empty' /var/lib/mirkomil/tunnel/state.json 2>/dev/null || true)"
+  MK_COCKPIT_SSO=""
+  if [[ "${MK_SSO:-no}" == yes && -n "$host" && -f /etc/systemd/system/mirkomil-sso.socket ]]; then
+    MK_COCKPIT_SSO="
+# Login only through Cloudflare Access (https://$host). Undo from SSH: sudo mirkomil sso off
+[OAuth]
+URL = https://$host/mk-sso
+ErrorParam = error
+TokenParam = access_token
+
+[bearer]
+UnixPath = /run/mirkomil-sso.sock"
+  fi
   before="$(cat "$conf" 2>/dev/null || true)"
   install_template "$MK_SRC/configs/cockpit/cockpit.conf.tmpl" "$conf"
   if [[ "$before" != "$(cat "$conf")" ]] && systemctl is-active -q cockpit.service; then

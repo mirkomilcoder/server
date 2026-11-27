@@ -94,7 +94,7 @@ export const PAGES: PageDef[] = [
   { id: 'databases', icon: Database, label: 'nav.databases', group: 'manage', component: lazy(() => import('./DatabasesPage')), minRole: 'developer' },
   { id: 'security', icon: Shield, label: 'nav.security', group: 'manage', component: lazy(() => import('./SecurityPage')), minRole: 'admin' },
   { id: 'network', icon: Network, label: 'nav.network', group: 'manage', component: lazy(() => import('./NetworkPage')), minRole: 'viewer' },
-  { id: 'users', icon: UserCog, label: 'nav.users', group: 'manage', component: lazy(() => import('./UsersPage')), minRole: 'admin' },
+  { id: 'users', icon: UserCog, label: 'nav.users', group: 'manage', component: lazy(() => import('./SuperAdminsPage')), minRole: 'admin' },
 
   { id: 'terminal', icon: SquareTerminal, label: 'nav.terminal', group: 'dev', component: lazy(() => import('./TerminalPage')), minRole: 'developer' },
   { id: 'logs', icon: FileText, label: 'nav.logs', group: 'dev', component: lazy(() => import('./LogsPage')), minRole: 'developer' },

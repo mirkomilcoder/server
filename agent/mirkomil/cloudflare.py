@@ -172,6 +172,36 @@ class CF:
         except CFError:
             return None
 
+    LOGIN_TYPES = ("google", "github", "onetimepin")
+
+    def login_idps(self, acc: str) -> list[str]:
+        """Login methods offered on the panel: Google / GitHub when configured, plus email code."""
+        try:
+            idps = self.req("GET", f"/accounts/{acc}/access/identity_providers", None) or []
+        except CFError:
+            return []
+        order = {t: i for i, t in enumerate(self.LOGIN_TYPES)}
+        mine = sorted((i for i in idps if i.get("type") in order), key=lambda i: order[i["type"]])
+        return [i["id"] for i in mine]
+
+    def set_oauth_idp(self, acc: str, kind: str, client_id: str, client_secret: str) -> str:
+        """Create or update the Google / GitHub login (OAuth app created by the owner)."""
+        if kind not in ("google", "github"):
+            raise CFError("faqat google yoki github")
+        name = {"google": "Google", "github": "GitHub"}[kind]
+        body = {"name": name, "type": kind, "config": {"client_id": client_id, "client_secret": client_secret}}
+        idps = self.req("GET", f"/accounts/{acc}/access/identity_providers", None) or []
+        cur = next((i for i in idps if i.get("type") == kind), None)
+        if cur:
+            return self.req("PUT", f"/accounts/{acc}/access/identity_providers/{cur['id']}", body)["id"]
+        return self.req("POST", f"/accounts/{acc}/access/identity_providers", body)["id"]
+
+    def remove_oauth_idp(self, acc: str, kind: str) -> None:
+        idps = self.req("GET", f"/accounts/{acc}/access/identity_providers", None) or []
+        for i in idps:
+            if i.get("type") == kind and kind in ("google", "github"):
+                self.req("DELETE", f"/accounts/{acc}/access/identity_providers/{i['id']}", None)
+
     def brand_login(self, acc: str, brand: str, domain: str) -> bool:
         """Access login page in the server's colours and name instead of Cloudflare's default."""
         try:
@@ -186,17 +216,19 @@ class CF:
             return False
 
     def ensure_access_app(self, acc: str, host: str, emails: list[str], mode: str = "emails",
-                          idp: str | None = None) -> str:
+                          idp: str | list[str] | None = None) -> str:
         """mode "everyone": any email that receives the code passes (then the server login and the
         user's role decide); mode "emails": only the listed addresses."""
         apps = self.req("GET", f"/accounts/{acc}/access/apps", None) or []
         app = next((a for a in apps if a.get("domain") == host), None)
         body = {"name": f"Mirkomil panel ({host})", "domain": host, "type": "self_hosted",
                 "session_duration": SESSION, "app_launcher_visible": False,
-                # with only the email-code login there is nothing to choose: go straight to it
-                "auto_redirect_to_identity": bool(idp)}
-        if idp:
-            body["allowed_idps"] = [idp]
+                # one login method: nothing to choose, go straight to it
+                "auto_redirect_to_identity": False}
+        idps = [idp] if isinstance(idp, str) else list(idp or [])
+        if idps:
+            body["allowed_idps"] = idps
+            body["auto_redirect_to_identity"] = len(idps) == 1
         if app is None:
             app = self.req("POST", f"/accounts/{acc}/access/apps", body)
         else:
@@ -216,7 +248,12 @@ class CF:
 
 def build_ingress(domain: str, routes: dict[str, Any], team: str, aud: str, root_app: str | None) -> list[dict[str, Any]]:
     """Ordered tunnel rules; the catch-all 404 must be last (Cloudflare requirement)."""
+    access = {"required": True, "teamName": team.split(".")[0], "audTag": [aud]}
     rules: list[dict[str, Any]] = [{
+        # single sign-on step of Cockpit's login page (behind Access like the rest of the panel)
+        "hostname": f"panel.{domain}", "path": "^/mk-sso$", "service": "http://localhost:8099",
+        "originRequest": {"access": access},
+    }, {
         "hostname": f"panel.{domain}",
         "service": "https://localhost:9090",
         "originRequest": {"noTLSVerify": True,  # Cockpit's self-signed cert, over localhost only
@@ -235,7 +272,8 @@ def build_ingress(domain: str, routes: dict[str, Any], team: str, aud: str, root
 
 
 def hosts_of(ingress: list[dict[str, Any]]) -> list[str]:
-    return [r["hostname"] for r in ingress if "hostname" in r]
+    """Distinct hostnames in rule order (a host can have several path rules)."""
+    return list(dict.fromkeys(r["hostname"] for r in ingress if "hostname" in r))
 
 
 # ---------------------------------------------------------------- persistence
@@ -300,7 +338,7 @@ def setup(token: str, domain: str, emails: list[str], root_app: str | None = Non
     if idp is None:
         warnings.append("Email kod bilan kirishni yoqib bo'lmadi: tokenga «Access: Organizations, Identity Providers, "
                         "and Groups → Edit» ruxsatini bering va qayta saqlang.")
-    aud = cf.ensure_access_app(acc, f"panel.{domain}", emails, mode, idp)
+    aud = cf.ensure_access_app(acc, f"panel.{domain}", emails, mode, cf.login_idps(acc) or idp)
     if not cf.brand_login(acc, brand, domain):
         warnings.append("Cloudflare kirish sahifasini brendlab bo'lmadi (o'sha «Edit» ruxsati kerak).")
     _write_secret("api_token", token)
@@ -339,3 +377,41 @@ def status(requester: Requester | None = None) -> dict[str, Any]:
     except (CFError, OSError) as e:
         out.update(status="unknown", error=str(e)[:200])
     return out
+
+
+def set_login_provider(kind: str, client_id: str, client_secret: str, enabled: bool = True,
+                       requester: Requester | None = None) -> dict[str, Any]:
+    """Google / GitHub sign-in for the panel (the secret goes to Cloudflare only, never stored here)."""
+    st = load_state()
+    if not st.get("tunnel_id"):
+        raise CFError("avval domenni ulang (Domenlar & SSL)")
+    cf = CF(_read_secret("api_token"), requester)
+    acc = st["account_id"]
+    try:
+        if enabled:
+            if not (re.fullmatch(r"[A-Za-z0-9._-]{8,200}", client_id or "") and 8 <= len(client_secret or "") <= 200
+                    and not re.search(r"\s", client_secret)):
+                raise CFError("Client ID / Client Secret noto'g'ri")
+            cf.set_oauth_idp(acc, kind, client_id, client_secret)
+        else:
+            cf.remove_oauth_idp(acc, kind)
+    except CFError as e:
+        if "Authentication error" in str(e) or "10000" in str(e):
+            raise CFError("Tokenga «Access: Organizations, Identity Providers, and Groups → Edit» ruxsati kerak")
+        raise
+    cf.ensure_access_app(acc, st["panel_host"], st.get("emails") or [], "emails", cf.login_idps(acc))
+    return login_status(requester=requester, cf=cf)
+
+
+def login_status(requester: Requester | None = None, cf: "CF | None" = None) -> dict[str, Any]:
+    st = load_state()
+    if not st.get("tunnel_id"):
+        return {"configured": False}
+    cf = cf or CF(_read_secret("api_token"), requester)
+    try:
+        idps = cf.req("GET", f"/accounts/{st['account_id']}/access/identity_providers", None) or []
+    except CFError as e:
+        return {"configured": True, "error": str(e)[:200]}
+    kinds = sorted({i.get("type") for i in idps if i.get("type") in CF.LOGIN_TYPES})
+    return {"configured": True, "providers": kinds, "callback": f"https://{st['team']}/cdn-cgi/access/callback"}
+

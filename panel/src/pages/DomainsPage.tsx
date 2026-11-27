@@ -8,6 +8,7 @@ import { useToast } from '@/state/toasts';
 import { Modal } from '@/components/Modal';
 import { Card, MotionGrid } from '@/widgets/Card';
 import { RowsSkeleton } from '@/widgets/Skeletons';
+import { LoginMethodsCard } from '@/widgets/LoginMethodsCard';
 import type { PageProps } from './registry';
 
 /*
@@ -72,7 +73,10 @@ export default function DomainsPage({ go }: PageProps) {
       ) : !s?.configured ? (
         <SetupCard onDone={() => setTick((x) => x + 1)} />
       ) : (
-        <Configured s={s} go={go} />
+        <>
+          <Configured s={s} go={go} />
+          <LoginMethodsCard />
+        </>
       )}
 
       <Modal open={editing} onClose={() => setEditing(false)} title={t('dom.edit')}>
@@ -237,12 +241,12 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
           placeholder={initial ? t('dom.tokenKeep') : ''} onChange={(e) => setToken(e.target.value.trim())} aria-invalid={!!token && !tokenOk} />
         <span className={token && !tokenOk ? 'form-error' : 'card__meta'}>{token && !tokenOk ? t('dom.tokenBad') : t('dom.tokenHint')}</span>
       </label>
-      <label className="field">
+      {!initial && <label className="field">
         <span className="field__label">{t('dom.ownerEmails')}</span>
         <input className="input input--plain mono" value={emails} placeholder="siz@gmail.com" onChange={(e) => setEmails(e.target.value)}
           aria-invalid={!!emails && !emailsOk} />
         <span className={emails && !emailsOk ? 'form-error' : 'card__meta'}>{emails && !emailsOk ? t('dom.emailsBad') : t('dom.ownerEmailsHint')}</span>
-      </label>
+      </label>}
       <label className="field">
         <span className="field__label">{t('dom.rootApp', { domain })}</span>
         <select className="select" value={root} onChange={(e) => setRoot(e.target.value)}>

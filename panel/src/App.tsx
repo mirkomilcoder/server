@@ -2,7 +2,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { SettingsProvider, useSettings } from '@/state/settings';
 import { SystemProvider, useSystem } from '@/state/system';
-import { syncAdminMemory } from '@/api/superuser';
+import { startAdmin, syncAdminMemory } from '@/api/superuser';
+import { sessionUser } from '@/api/cockpit';
 import { MetricsProvider } from '@/state/metrics';
 import { GuardianProvider, useBrand } from '@/state/guardian';
 import { ToastProvider, useToast } from '@/state/toasts';
@@ -29,6 +30,12 @@ function Root() {
   useEffect(() => {
     if (sysAdmin !== null) syncAdminMemory(settings.rememberAdmin, sysAdmin);
   }, [settings.rememberAdmin, sysAdmin]);
+  // signed in through Cloudflare (SSO account): turn admin mode on by itself — there is no password
+  useEffect(() => {
+    if (sysAdmin === false && sessionUser().name === 'mkadmin') {
+      startAdmin(() => { /* no prompt expected */ }, true).catch(() => { /* panel still usable */ });
+    }
+  }, [sysAdmin]);
   useApplyTheme(settings);
 
   // Ctrl+K / Cmd+K opens the command palette from anywhere

@@ -183,6 +183,22 @@ async def _respond_logo(writer: asyncio.StreamWriter) -> None:
         writer.close()
 
 
+async def _respond_sso(writer: asyncio.StreamWriter, path: str, jwt: str) -> None:
+    """Cockpit's OAuth login step: hand the (verified) Cloudflare token back to the panel page."""
+    from urllib.parse import parse_qs, urlsplit
+    from .. import sso
+    redirect_uri = (parse_qs(urlsplit(path).query).get("redirect_uri") or [""])[0]
+    status, location = await asyncio.get_running_loop().run_in_executor(None, sso.token_redirect, jwt, redirect_uri)
+    if status != 302:
+        return await _respond(writer, 503, {"error": "sso not configured"})
+    writer.write(f"HTTP/1.1 302 Found\r\nLocation: {location}\r\nCache-Control: no-store\r\n"
+                 f"Referrer-Policy: no-referrer\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".encode())
+    try:
+        await writer.drain()
+    finally:
+        writer.close()
+
+
 async def _handle(state: Any, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     try:
         head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=10)
@@ -197,6 +213,8 @@ async def _handle(state: Any, reader: asyncio.StreamReader, writer: asyncio.Stre
         return await _respond(writer, 400, {"error": "bad request"})
     if method == "GET" and path.split("?", 1)[0] == "/brand/logo.svg":
         return await _respond_logo(writer)
+    if method == "GET" and path.split("?", 1)[0] == "/mk-sso":
+        return await _respond_sso(writer, path, headers.get("cf-access-jwt-assertion", ""))
     m = PATH_RE.match(path.split("?", 1)[0])
     if not m:
         return await _respond(writer, 404, {"error": "not found"})

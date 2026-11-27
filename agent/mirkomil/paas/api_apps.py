@@ -449,25 +449,37 @@ def register(api: Any, state: Any) -> None:
 
     @api.route("GET", "/v1/tunnel", role="admin")
     async def tunnel_status(p: Peer, _q: dict[str, str], _b: Any) -> Any:
-        return await h("tunnel.status", timeout=40)
+        from ..api_users import OWNER_KEY
+        out = await h("tunnel.status", timeout=40)
+        out["owner_emails"] = db.get(OWNER_KEY)
+        if out["owner_emails"] is None and out.get("configured"):
+            users = {r[0] for r in db.conn.execute("SELECT email FROM user_meta WHERE email IS NOT NULL").fetchall()}
+            out["owner_emails"] = [e for e in (out.get("emails") or []) if e not in users]
+        return out
 
     @api.route("POST", "/v1/tunnel/setup", role="admin")
     async def tunnel_setup(p: Peer, _q: dict[str, str], b: Any) -> Any:
         """The API token passes through to the root helper and is stored root-only; it is never logged or returned."""
+        from ..api_users import EMAIL_RE as USER_EMAIL_RE, OWNER_KEY, allowed_emails
         b = b if isinstance(b, dict) else {}
-        mode = str(b.get("access_mode") or "emails")
-        if mode not in ("everyone", "emails"):
-            raise HttpError(400, "kirish rejimi: everyone yoki emails")
-        emails = b.get("emails") or []
-        if not isinstance(emails, list) or len(emails) > 50 or (mode == "emails" and not emails):
-            raise HttpError(400, "kamida bitta email kerak")
+        owner = b.get("emails") or []
+        if not isinstance(owner, list) or len(owner) > 50:
+            raise HttpError(400, "emails: ro'yxat kutilgan")
+        owner = sorted({str(e).strip().lower() for e in owner if str(e).strip()})
+        if any(not USER_EMAIL_RE.match(e) for e in owner):
+            raise HttpError(400, "email noto'g'ri")
+        db.put(OWNER_KEY, owner)
+        # only panel users get through: the owner's emails + every user's email (Users page)
+        emails, mode = allowed_emails(db), "emails"
+        if not emails:
+            raise HttpError(400, "kamida bitta email kerak (sizning emailingiz)")
         root = b.get("root_app") or None
         if root is not None:
             root = get_app(str(root))["name"]
         res = await h("tunnel.setup", {"token": str(b.get("token") or ""), "domain": state.cfg.domain,
                                        "emails": [str(e) for e in emails], "root_app": root,
                                        "access_mode": mode, "brand": state.cfg.brand}, timeout=120)
-        who = "har kim (email kod bilan), keyin server login" if mode == "everyone" else ", ".join(str(e) for e in emails)
+        who = ", ".join(emails)
         db.add_event("action", "info", f"Cloudflare Tunnel sozlandi: panel.{state.cfg.domain}", f"ruxsat: {who}", actor=p.user)
         return res
 

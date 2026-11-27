@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, CloudCog, ExternalLink, Globe, KeyRound, Lock, RefreshCw, Settings2, ShieldCheck } from 'lucide-react';
-import { apps, tunnel, type AccessMode, type TunnelStatus } from '@/api/guardian';
+import { apps, tunnel, type TunnelStatus } from '@/api/guardian';
 import { usePoll } from '@/hooks/usePoll';
 import { useT, type TranslationKey } from '@/i18n';
 import { useBrand, useGuardian } from '@/state/guardian';
@@ -105,6 +105,9 @@ function Configured({ s, go }: { s: TunnelStatus; go: PageProps['go'] }) {
 
   return (
     <>
+      {s.access_mode === 'everyone' && (
+        <div className="notice notice--danger" role="alert">{t('dom.everyoneWarn')}</div>
+      )}
       {s.domain && s.domain !== domain && (
         <div className="notice notice--warning" role="status">{t('dom.mismatch', { old: s.domain, now: domain })}</div>
       )}
@@ -125,8 +128,16 @@ function Configured({ s, go }: { s: TunnelStatus; go: PageProps['go'] }) {
             <a className="mono ext-link" href={`https://${s.panel_host}`} target="_blank" rel="noopener noreferrer">{s.panel_host} <ExternalLink size={13} /></a>
             <span className="pill pill--success"><ShieldCheck size={13} /> Access</span>
           </div>
-          <p className="card__meta">{s.access_mode === 'everyone' ? t('dom.panelHintEveryone') : t('dom.panelHint')}</p>
-          {s.access_mode !== 'everyone' && (s.emails ?? []).map((e) => <div className="list-line mono" key={e}><span>{e}</span><CheckCircle2 size={15} className="c-success" /></div>)}
+          <p className="card__meta">{t('dom.panelHint')}</p>
+          {(s.emails ?? []).map((e) => (
+            <div className="list-line mono" key={e}>
+              <span>{e}</span>
+              <span className="row-gap">
+                <span className="card__meta">{(s.owner_emails ?? []).includes(e) ? t('users.owner') : t('nav.users')}</span>
+                <CheckCircle2 size={15} className="c-success" />
+              </span>
+            </div>
+          ))}
           {(s.warnings ?? []).map((w) => <p key={w} className="notice notice--warning dom-warning">{w}</p>)}
         </Card>
       </MotionGrid>
@@ -192,13 +203,12 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
   const { domain } = useBrand();
   const list = usePoll(apps.list, 60_000);
   const [token, setToken] = useState('');
-  const [emails, setEmails] = useState((initial?.emails ?? []).join(', '));
+  const [emails, setEmails] = useState((initial?.owner_emails ?? initial?.emails ?? []).join(', '));
   const [root, setRoot] = useState(initial?.root_app ?? '');
-  const [mode, setMode] = useState<AccessMode>(initial?.access_mode ?? 'everyone');
   const [busy, setBusy] = useState(false);
 
   const emailList = emails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
-  const emailsOk = emailList.every((e) => EMAIL_RE.test(e)) && (mode === 'everyone' || emailList.length > 0);
+  const emailsOk = emailList.length > 0 && emailList.every((e) => EMAIL_RE.test(e));
   const tokenOk = initial ? token === '' || TOKEN_RE.test(token) : TOKEN_RE.test(token);
   const webApps = (list.data?.apps ?? []).filter((a) => a.type !== 'bot').map((a) => a.name);
 
@@ -207,7 +217,7 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
     if (!emailsOk || !tokenOk) return;
     setBusy(true);
     try {
-      const r = await tunnel.setup(token, mode === 'emails' ? emailList : [], root || null, mode);
+      const r = await tunnel.setup(token, emailList, root || null, 'emails');
       setToken('');
       toast({ kind: 'success', title: t('dom.done'), details: (r.hosts ?? []).join(', ') });
       for (const w of r.warnings ?? []) toast({ kind: 'warning', title: t('dom.warning'), details: w });
@@ -227,25 +237,12 @@ function SetupForm({ initial, onDone, onCancel }: { initial?: TunnelStatus; onDo
           placeholder={initial ? t('dom.tokenKeep') : ''} onChange={(e) => setToken(e.target.value.trim())} aria-invalid={!!token && !tokenOk} />
         <span className={token && !tokenOk ? 'form-error' : 'card__meta'}>{token && !tokenOk ? t('dom.tokenBad') : t('dom.tokenHint')}</span>
       </label>
-      <div className="field">
-        <span className="field__label">{t('dom.whoTitle')}</span>
-        <div className="role-pick">
-          {(['everyone', 'emails'] as const).map((m) => (
-            <button type="button" key={m} className="role-option" aria-pressed={mode === m} onClick={() => setMode(m)}>
-              <strong>{t(`dom.who.${m}`)}</strong>
-              <span className="card__meta">{t(`dom.who.${m}.about`)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      {mode === 'emails' && (
-        <label className="field">
-          <span className="field__label">{t('dom.emails')}</span>
-          <input className="input input--plain mono" value={emails} placeholder="siz@gmail.com" onChange={(e) => setEmails(e.target.value)}
-            aria-invalid={!!emails && !emailsOk} />
-          <span className={emails && !emailsOk ? 'form-error' : 'card__meta'}>{emails && !emailsOk ? t('dom.emailsBad') : t('dom.emailsHint')}</span>
-        </label>
-      )}
+      <label className="field">
+        <span className="field__label">{t('dom.ownerEmails')}</span>
+        <input className="input input--plain mono" value={emails} placeholder="siz@gmail.com" onChange={(e) => setEmails(e.target.value)}
+          aria-invalid={!!emails && !emailsOk} />
+        <span className={emails && !emailsOk ? 'form-error' : 'card__meta'}>{emails && !emailsOk ? t('dom.emailsBad') : t('dom.ownerEmailsHint')}</span>
+      </label>
       <label className="field">
         <span className="field__label">{t('dom.rootApp', { domain })}</span>
         <select className="select" value={root} onChange={(e) => setRoot(e.target.value)}>

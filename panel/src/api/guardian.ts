@@ -260,6 +260,7 @@ export const users = {
   groups: () => get<{ groups: { name: string; about: string }[] }>('/v1/users/groups'),
   create: (b: { user: string; role: Role; name: string; email: string; apps: string[] }) => post<Invite>('/v1/users', b),
   setRole: (name: string, role: Role) => post<{ role: Role }>(u(name, 'role'), { role }),
+  setEmail: (name: string, email: string) => post<{ email: string | null; access: string }>(u(name, 'email'), { email }),
   setLocked: (name: string, locked: boolean) => post<{ locked: boolean }>(u(name, 'lock'), { locked }),
   resetPassword: (name: string) => post<Invite>(u(name, 'password'), {}),
   setApps: (name: string, list: string[]) => post<{ apps: string[] }>(u(name, 'apps'), { apps: list }),
@@ -305,6 +306,8 @@ export interface TunnelStatus {
   /** "everyone": any email gets a login code, then the server login decides; "emails": only the list */
   access_mode?: AccessMode;
   warnings?: string[];
+  /** the owner's own emails (the rest of the list comes from the Users page) */
+  owner_emails?: string[] | null;
 }
 
 export type AccessMode = 'everyone' | 'emails';

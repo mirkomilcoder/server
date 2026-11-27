@@ -32,6 +32,17 @@ CREATE TABLE IF NOT EXISTS app_members (
 
 
 
+OWNER_KEY = "access_owner_emails"
+
+
+def allowed_emails(db: Any) -> list[str]:
+    """Who may pass Cloudflare Access to the panel: the owner's emails (Domenlar & SSL) plus the
+    email of every panel user (admin / developer / viewer). Everyone else is refused there."""
+    owner = db.get(OWNER_KEY, []) or []
+    users = [r[0] for r in db.conn.execute("SELECT email FROM user_meta WHERE email IS NOT NULL AND email != ''").fetchall()]
+    return sorted({e.strip().lower() for e in [*owner, *users] if e and EMAIL_RE.match(e.strip())})
+
+
 def apps_for(db: Any, user: str) -> list[str]:
     return [r[0] for r in db.conn.execute("SELECT app FROM app_members WHERE user = ? ORDER BY app", (user,)).fetchall()]
 
@@ -65,25 +76,26 @@ def register(api: Any, state: Any) -> None:
             raise HttpError(400, f"bunday ilova yo'q: {', '.join(missing)}")
         return out
 
-    async def access_emails(add: str | None = None, remove: str | None = None) -> str:
-        """Keep the Cloudflare Access allow-list in step with invited users (best effort)."""
+    async def access_sync() -> str:
+        """Make the Cloudflare Access list equal to allowed_emails() (owner + panel users). Best effort."""
         try:
             st = await h("tunnel.status", timeout=40)
         except HttpError:
             return "off"
         if not st.get("configured"):
             return "off"
-        emails = set(st.get("emails") or [])
-        before = set(emails)
-        if add:
-            emails.add(add.lower())
-        if remove:
-            emails.discard(remove.lower())
-        if emails == before or not emails:
+        if db.get(OWNER_KEY) is None:
+            # first run after upgrading: what was entered before (minus users) is the owner's list
+            users = {r[0] for r in db.conn.execute("SELECT email FROM user_meta WHERE email IS NOT NULL").fetchall()}
+            db.put(OWNER_KEY, [e for e in (st.get("emails") or []) if e not in users])
+        emails = allowed_emails(db)
+        if not emails:
+            return "xato: ruxsat etilgan email yo'q"
+        if emails == sorted(st.get("emails") or []) and st.get("access_mode") == "emails":
             return "ok"
         try:
-            await h("tunnel.setup", {"token": "", "domain": state.cfg.domain, "emails": sorted(emails),
-                                     "root_app": st.get("root_app")}, timeout=120)
+            await h("tunnel.setup", {"token": "", "domain": state.cfg.domain, "emails": emails, "access_mode": "emails",
+                                     "brand": state.cfg.brand, "root_app": st.get("root_app")}, timeout=120)
             return "ok"
         except HttpError as e:
             return f"xato: {e}"
@@ -126,10 +138,25 @@ def register(api: Any, state: Any) -> None:
         db.conn.execute("INSERT OR REPLACE INTO user_meta (user, email, invited_by, invited_at) VALUES (?,?,?,?)",
                         (user, email, p.user, int(time.time())))
         db.conn.executemany("INSERT OR IGNORE INTO app_members (app, user) VALUES (?,?)", [(a, user) for a in apps])
-        access = await access_emails(add=email) if email else "off"
+        access = await access_sync() if email else "no-email"
         db.add_event("action", "info", f"Yangi foydalanuvchi: {user} ({role})", f"email: {email or '—'}", actor=p.user)
         return {"user": user, "role": role, "password": res["password"], "panel_url": await panel_url(),
                 "email": email, "apps": apps, "access": access}
+
+    @api.route("POST", "/v1/users/{name}/email", role="admin")
+    async def users_email(p: Peer, q: dict[str, str], b: Any) -> Any:
+        """The email that lets this user through Cloudflare Access ("" removes it)."""
+        user = target(q["name"], p)
+        email = str((b or {}).get("email") or "").strip().lower()
+        if email and not EMAIL_RE.match(email):
+            raise HttpError(400, "email noto'g'ri")
+        if email and db.conn.execute("SELECT 1 FROM user_meta WHERE email = ? AND user != ?", (email, user)).fetchone():
+            raise HttpError(400, "bu email boshqa foydalanuvchiga biriktirilgan")
+        db.conn.execute("INSERT INTO user_meta (user, email, invited_by, invited_at) VALUES (?, ?, ?, ?) "
+                        "ON CONFLICT(user) DO UPDATE SET email = excluded.email", (user, email or None, p.user, int(time.time())))
+        access = await access_sync()
+        db.add_event("action", "info", f"Email o'zgardi: {user}", email or "olib tashlandi", actor=p.user)
+        return {"user": user, "email": email or None, "access": access}
 
     @api.route("POST", "/v1/users/{name}/role", role="admin")
     async def users_role(p: Peer, q: dict[str, str], b: Any) -> Any:
@@ -190,6 +217,6 @@ def register(api: Any, state: Any) -> None:
         db.conn.execute("DELETE FROM user_meta WHERE user = ?", (user,))
         db.conn.execute("DELETE FROM app_members WHERE user = ?", (user,))
         if row and row[0]:
-            await access_emails(remove=row[0])
+            await access_sync()
         db.add_event("action", "warn", f"Foydalanuvchi o'chirildi: {user}", "uy papkasi saqlandi", actor=p.user)
         return {"deleted": user}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, Crown, KeyRound, Lock, Printer, ShieldCheck, Trash2, Unlock, UserPlus, Users as UsersIcon } from 'lucide-react';
+import { AtSign, Check, Copy, Crown, KeyRound, Lock, Printer, ShieldCheck, Trash2, Unlock, UserPlus, Users as UsersIcon } from 'lucide-react';
 import { apps, users, type Invite, type PanelUser, type Role } from '@/api/guardian';
 import { usePoll } from '@/hooks/usePoll';
 import { useT, type TranslationKey } from '@/i18n';
@@ -37,6 +37,7 @@ export default function UsersPage(_props: PageProps) {
   const [editApps, setEditApps] = useState<PanelUser | null>(null);
   const [editGroups, setEditGroups] = useState<PanelUser | null>(null);
   const [del, setDel] = useState<PanelUser | null>(null);
+  const [editEmail, setEditEmail] = useState<PanelUser | null>(null);
   const [busy, setBusy] = useState(false);
 
   const run = async <T,>(fn: () => Promise<T>, ok?: string): Promise<T | null> => {
@@ -100,6 +101,7 @@ export default function UsersPage(_props: PageProps) {
                     {self && <span className="pill">{t('users.you')}</span>}
                     {u.locked && <span className="pill pill--danger"><Lock size={12} /> {t('users.locked')}</span>}
                     {u.must_change && <span className="pill pill--warning">{t('users.mustChange')}</span>}
+                    {!u.owner && !u.email && <span className="pill pill--warning" title={t('users.noEmailHint')}><AtSign size={12} /> {t('users.noEmail')}</span>}
                   </div>
                   <div className="card__meta mono">{u.user}{u.email ? ` · ${u.email}` : ''}</div>
                   <div className="user-row__tags">
@@ -121,6 +123,8 @@ export default function UsersPage(_props: PageProps) {
                         <button className="btn btn--sm" onClick={() => setEditApps(u)} disabled={busy}>{t('users.apps')}</button>
                       )}
                       <button className="btn btn--sm" onClick={() => setEditGroups(u)} disabled={busy}>{t('users.groups')}</button>
+                      <button className="icon-btn" title={t('users.emailEdit')} aria-label={t('users.emailEdit')} disabled={busy}
+                        onClick={() => setEditEmail(u)}><AtSign size={16} /></button>
                       <button className="icon-btn" title={t('users.resetPw')} aria-label={t('users.resetPw')} disabled={busy}
                         onClick={async () => { const r = await run(() => users.resetPassword(u.user)); if (r) setInvite({ ...r, role: u.role as Role }); }}>
                         <KeyRound size={16} />
@@ -163,6 +167,13 @@ export default function UsersPage(_props: PageProps) {
         options={(groupDefs.data?.groups ?? []).map((g) => ({ value: g.name, label: g.name, about: g.about }))}
         initial={editGroups?.groups ?? []} busy={busy} onClose={() => setEditGroups(null)}
         onSave={async (v) => { if (editGroups && await run(() => users.setGroups(editGroups.user, v), t('users.saved'))) setEditGroups(null); }} />
+
+      <EmailDialog user={editEmail} busy={busy} onClose={() => setEditEmail(null)}
+        onSave={async (email) => {
+          if (!editEmail) return;
+          const r = await run(() => users.setEmail(editEmail.user, email), t('users.saved'));
+          if (r) setEditEmail(null);
+        }} />
 
       <ConfirmDialog
         open={!!del}
@@ -353,6 +364,33 @@ function PickList({ open, title, hint, options, initial, busy, onClose, onSave }
           <button className="btn btn--accent" disabled={busy} onClick={() => onSave(sel)}>{t('dom.save')}</button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+function EmailDialog({ user, busy, onClose, onSave }: { user: PanelUser | null; busy: boolean; onClose: () => void; onSave: (email: string) => void }) {
+  const { t } = useT();
+  const [email, setEmail] = useState('');
+  const [key, setKey] = useState('');
+  if ((user?.user ?? '') !== key) {
+    setKey(user?.user ?? '');
+    setEmail(user?.email ?? '');
+  }
+  const ok = !email || EMAIL_RE.test(email.trim());
+  return (
+    <Modal open={!!user} onClose={onClose} title={t('users.emailFor', { user: user?.user ?? '' })}>
+      <form className="wizard" onSubmit={(e) => { e.preventDefault(); if (ok) onSave(email.trim().toLowerCase()); }}>
+        <label className="field">
+          <span className="field__label">{t('users.email')}</span>
+          <input className="input input--plain" type="email" value={email} autoFocus placeholder="ali@gmail.com"
+            onChange={(e) => setEmail(e.target.value)} aria-invalid={!ok} />
+          <span className={ok ? 'card__meta' : 'form-error'}>{ok ? t('users.emailHint') : t('dom.emailsBad')}</span>
+        </label>
+        <div className="modal__actions">
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
+          <button type="submit" className="btn btn--accent" disabled={busy || !ok}>{t('dom.save')}</button>
+        </div>
+      </form>
     </Modal>
   );
 }
